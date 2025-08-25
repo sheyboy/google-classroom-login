@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  google-login:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Berlin
