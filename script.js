@@ -1,7 +1,7 @@
 // Configuration - Replace these with your actual values
 const CONFIG = {
     CLIENT_ID: '466835705244-sgg58ip9v1jvgnutg7popod26d5u4ekm.apps.googleusercontent.com',
-    N8N_WEBHOOK_URL: 'YOUR_N8N_WEBHOOK_URL', // Replace with your n8n webhook URL
+    N8N_WEBHOOK_URL: 'https://n8n2.geekhouse.io/webhook/classroom',
     SCOPES: [
         'https://www.googleapis.com/auth/classroom.courses.readonly',
         'https://www.googleapis.com/auth/classroom.rosters.readonly',

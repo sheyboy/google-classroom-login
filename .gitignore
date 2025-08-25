@@ -12,3 +12,4 @@ Thumbs.db
 # Environment variables (if you create any)
 .env
 .env.local
+.vercel
