@@ -348,30 +348,35 @@ function calculateMaxScore(content) {
 // Use Gemini AI to process raw JSON and create complete editable interface
 async function processGradingDataWithGemini(content) {
     try {
-        const prompt = `CRITICAL: You must process this raw JSON grading data and create a complete HTML interface. 
+        const prompt = `CRITICAL: Create an editable HTML interface for this grading data. The JSON structure MUST be preserved for n8n workflow.
 
 REQUIREMENTS:
 1. NEVER show "[object Object]" - extract ALL actual text content from nested objects
-2. For each field in the JSON, create an editable card
-3. If a field contains an object, extract ALL the text values from inside that object
-4. Create proper HTML input fields (input/textarea) with the actual readable content
-5. Use data-field attributes for form collection
-6. Make everything editable
+2. Create editable cards for each top-level field in the JSON
+3. For nested objects, create separate input fields for each property
+4. Use EXACT data-field attributes that match the JSON path (e.g., "Understanding of Case.score")
+5. Add data-is-array="true" for array fields, data-is-object="true" for object fields
+6. Show actual readable content in all fields
 
-EXAMPLE: If you see {"score": 5, "rationale": "Good work"}, create inputs for BOTH the score (5) and rationale ("Good work")
+CRITICAL DATA-FIELD MAPPING:
+- For "Understanding of Case": {"score": 5, "rationale": "text"} 
+  Create: data-field="Understanding of Case.score" and data-field="Understanding of Case.rationale"
+- For arrays: add data-is-array="true"
+- For objects: add data-is-object="true"
 
 Raw JSON Data:
 ${JSON.stringify(content, null, 2)}
 
-Create HTML with this structure:
+Create HTML structure:
 <div class="grading-cards">
   <div class="grading-card">
     <h4>Field Name</h4>
-    <input/textarea with actual content>
+    <input data-field="exact.json.path" value="actual content">
+    <textarea data-field="exact.json.path">actual content</textarea>
   </div>
 </div>
 
-RETURN ONLY THE HTML - NO EXPLANATIONS OR MARKDOWN`;
+RETURN ONLY CLEAN HTML - NO MARKDOWN OR EXPLANATIONS`;
         
         const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
             method: 'POST',
@@ -396,8 +401,12 @@ RETURN ONLY THE HTML - NO EXPLANATIONS OR MARKDOWN`;
             if (htmlStructure) {
                 // Remove any markdown code blocks
                 htmlStructure = htmlStructure.replace(/```html\n?/g, '').replace(/```\n?/g, '');
-                // Remove any extra explanations
-                htmlStructure = htmlStructure.replace(/^[^<]*/, '').replace(/[^>]*$/, '');
+                // Remove any extra explanations before first < and after last >
+                const firstTag = htmlStructure.indexOf('<');
+                const lastTag = htmlStructure.lastIndexOf('>');
+                if (firstTag !== -1 && lastTag !== -1) {
+                    htmlStructure = htmlStructure.substring(firstTag, lastTag + 1);
+                }
                 
                 console.log('Gemini generated HTML:', htmlStructure);
                 return htmlStructure;
@@ -611,21 +620,27 @@ async function submitGradesToClassroom() {
     }
 }
 
-// Collect all edited data from the form
+// Collect all edited data from the form and maintain proper JSON structure for n8n
 function collectEditedData() {
+    // Start with the original data structure
     const updatedData = JSON.parse(JSON.stringify(window.currentGradingData.content)); // Deep copy
     
-    // Update all editable fields
+    console.log('Original data structure:', updatedData);
+    
+    // Update all editable fields while preserving the original structure
     document.querySelectorAll('.editable-field').forEach(field => {
         const fieldPath = field.dataset.field;
         let value = field.value;
-        const isArray = field.dataset.isArray === 'true';
+        
+        if (!fieldPath) return; // Skip fields without data-field attribute
+        
+        console.log(`Updating field: ${fieldPath} with value:`, value);
         
         // Handle nested field paths like "Understanding of Case.score"
         const pathParts = fieldPath.split('.');
         let current = updatedData;
         
-        // Navigate to the parent object
+        // Navigate to the parent object, creating structure if needed
         for (let i = 0; i < pathParts.length - 1; i++) {
             const part = pathParts[i];
             if (!current[part]) {
@@ -636,36 +651,67 @@ function collectEditedData() {
         
         const lastPart = pathParts[pathParts.length - 1];
         
-        // Handle different value types
+        // Handle different value types based on field attributes and original data type
         if (field.type === 'number') {
             current[lastPart] = parseInt(value) || 0;
-        } else if (isArray) {
+        } else if (field.dataset.isArray === 'true') {
             // Try to parse as JSON array
             try {
                 current[lastPart] = JSON.parse(value);
             } catch (e) {
-                // If parsing fails, split by lines or keep as string
-                current[lastPart] = value.split('\n').filter(line => line.trim());
+                console.warn(`Failed to parse array for ${fieldPath}:`, e);
+                // If parsing fails, try to split by lines or keep as string
+                if (value.includes('\n')) {
+                    current[lastPart] = value.split('\n').filter(line => line.trim());
+                } else {
+                    current[lastPart] = [value];
+                }
+            }
+        } else if (field.dataset.isObject === 'true') {
+            // Try to parse as JSON object
+            try {
+                current[lastPart] = JSON.parse(value);
+            } catch (e) {
+                console.warn(`Failed to parse object for ${fieldPath}:`, e);
+                current[lastPart] = value; // Keep as string if parsing fails
             }
         } else if (field.tagName === 'SELECT') {
             current[lastPart] = value;
         } else {
+            // Regular text field
             current[lastPart] = value;
         }
     });
     
-    // Update total score from the main input
+    // Update total score from the main input if it exists
     const totalScoreInput = document.getElementById('total-score');
-    if (totalScoreInput && updatedData['Total Score']) {
-        updatedData['Total Score'].score = parseInt(totalScoreInput.value) || 0;
+    if (totalScoreInput) {
+        const totalValue = parseInt(totalScoreInput.value) || 0;
+        
+        // Try to find where to put the total score in the structure
+        if (updatedData['Total Score']) {
+            updatedData['Total Score'].score = totalValue;
+        } else {
+            // Look for any field that might be the total
+            Object.keys(updatedData).forEach(key => {
+                if (key.toLowerCase().includes('total') && typeof updatedData[key] === 'object') {
+                    if (updatedData[key].score !== undefined) {
+                        updatedData[key].score = totalValue;
+                    }
+                }
+            });
+        }
     }
     
-    // Ensure all arrays and objects are properly stringified for submission
-    const stringifyArraysAndObjects = (obj) => {
+    console.log('Updated data structure:', updatedData);
+    
+    // CRITICAL: Maintain the exact JSON structure for n8n
+    // Only stringify nested objects and arrays, not the top-level structure
+    const prepareForN8N = (obj) => {
         if (Array.isArray(obj)) {
             return obj.map(item => {
                 if (typeof item === 'object' && item !== null) {
-                    return JSON.stringify(stringifyArraysAndObjects(item));
+                    return JSON.stringify(prepareForN8N(item));
                 }
                 return item;
             });
@@ -673,15 +719,18 @@ function collectEditedData() {
             const result = {};
             for (const [key, value] of Object.entries(obj)) {
                 if (Array.isArray(value)) {
+                    // Stringify array items if they are objects
                     result[key] = value.map(item => {
                         if (typeof item === 'object' && item !== null) {
-                            return JSON.stringify(stringifyArraysAndObjects(item));
+                            return JSON.stringify(prepareForN8N(item));
                         }
                         return item;
                     });
                 } else if (typeof value === 'object' && value !== null) {
-                    result[key] = JSON.stringify(stringifyArraysAndObjects(value));
+                    // Stringify nested objects
+                    result[key] = JSON.stringify(prepareForN8N(value));
                 } else {
+                    // Keep primitive values as-is
                     result[key] = value;
                 }
             }
@@ -690,9 +739,8 @@ function collectEditedData() {
         return obj;
     };
     
-    console.log('Updated data before stringification:', updatedData);
-    const finalData = stringifyArraysAndObjects(updatedData);
-    console.log('Final data with stringified arrays/objects:', finalData);
+    const finalData = prepareForN8N(updatedData);
+    console.log('Final data prepared for n8n:', finalData);
     
     return finalData;
 }
