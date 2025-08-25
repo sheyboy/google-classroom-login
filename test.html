@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth Test</title>
+</head>
+<body>
+    <h1>Google OAuth Test</h1>
+    <button id="testBtn">Test OAuth</button>
+    <div id="result"></div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        function initTest() {
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: '466835705244-sgg58ip9v1jvgnutg7popod26d5u4ekm.apps.googleusercontent.com',
+                scope: 'https://www.googleapis.com/auth/drive.readonly',
+                callback: (response) => {
+                    document.getElementById('result').innerHTML = 
+                        response.error ? 'Error: ' + response.error : 'Success! Token received';
+                }
+            });
+            
+            document.getElementById('testBtn').onclick = () => client.requestAccessToken();
+        }
+        
+        window.onload = initTest;
+    </script>
+</body>
+</html>
