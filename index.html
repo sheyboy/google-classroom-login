@@ -55,6 +55,909 @@
             margin-top: 1rem;
             display: none;
         }
+        .course {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            background: white;
+        }
+        .assignment {
+            border-left: 3px solid #4285f4;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            background: #f8f9fa;
+        }
+        .submission {
+            background: #e8f0fe;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .submission a {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+        .submission a:hover {
+            text-decoration: underline;
+        }
+        .grade-btn {
+            background-color: #34a853;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        .grade-btn:hover {
+            background-color: #2d8f47;
+        }
+        .grade-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* Grading Modal Styles */
+        .grading-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .grading-modal.show {
+            opacity: 1;
+        }
+        .grading-modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        .grading-modal.show .grading-modal-content {
+            transform: scale(1);
+        }
+        .grading-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .grading-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        .close-modal {
+            font-size: 2rem;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        .close-modal:hover {
+            opacity: 1;
+        }
+        .student-info {
+            padding: 1.5rem 2rem;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .total-score {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .score-label {
+            font-weight: 600;
+            color: #495057;
+        }
+        .score-value {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .grading-content {
+            padding: 2rem;
+        }
+        .grading-table-container {
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .grading-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        .grading-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+        .grading-table th:nth-child(1) { width: 20%; }
+        .grading-table th:nth-child(2) { width: 10%; }
+        .grading-table th:nth-child(3) { width: 35%; }
+        .grading-table th:nth-child(4) { width: 35%; }
+        
+        .grading-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: top;
+        }
+        .grading-table tr:last-child td {
+            border-bottom: none;
+        }
+        .grading-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .criteria-name {
+            font-weight: 600;
+            color: #495057;
+            background: #e3f2fd !important;
+        }
+        .score-cell {
+            text-align: center;
+            background: #f8f9fa !important;
+        }
+        .score-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        .score {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+        .max-score {
+            font-size: 1rem;
+            color: #6c757d;
+        }
+        .evidence-text, .improvement-text {
+            line-height: 1.6;
+            color: #212529;
+            font-size: 0.9rem;
+        }
+        .evidence-text {
+            background: #e8f5e8 !important;
+        }
+        .improvement-text {
+            background: #fff3cd !important;
+        }
+        .additional-fields {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .summary-card.alignment {
+            border-left-color: #6f42c1;
+        }
+        .summary-card.notes {
+            border-left-color: #fd7e14;
+        }
+        .summary-card.additional {
+            border-left-color: #20c997;
+        }
+        .summary-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-left: 4px solid;
+        }
+        .summary-card.strengths {
+            border-left-color: #28a745;
+        }
+        .summary-card.improvements {
+            border-left-color: #ffc107;
+        }
+        .summary-card.suggestions {
+            border-left-color: #17a2b8;
+        }
+        .summary-card h4 {
+            margin: 0 0 1rem 0;
+            color: #495057;
+        }
+        .summary-card p {
+            margin: 0;
+            line-height: 1.6;
+            color: #6c757d;
+        }
+        
+        /* Editable Interface Styles */
+        .editable-field {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-family: inherit;
+            font-size: inherit;
+            background: white;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .editable-field:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+        }
+        .editable-field[type="number"] {
+            text-align: center;
+            width: 60px;
+        }
+        .score-input {
+            font-weight: bold;
+            color: #1a73e8;
+            font-size: 1.1rem;
+        }
+        .max-score-input {
+            width: 50px;
+            font-size: 0.9rem;
+        }
+        textarea.editable-field {
+            min-height: 80px;
+            resize: vertical;
+            line-height: 1.4;
+        }
+        .summary-textarea {
+            min-height: 100px;
+        }
+        #total-score {
+            background: white;
+            border: 2px solid #1a73e8;
+            border-radius: 6px;
+            padding: 0.5rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #1a73e8;
+            width: 80px;
+            text-align: center;
+        }
+        #total-score:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
+        }
+        
+        /* Action Buttons */
+        .grading-actions {
+            padding: 1.5rem 2rem;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            border-radius: 0 0 12px 12px;
+        }
+        .submit-grades-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .submit-grades-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+        .submit-grades-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .cancel-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+        .cancel-btn:hover {
+            background: #5a6268;
+        }
+        
+        /* Success Message */
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1001;
+            animation: slideInRight 0.3s ease;
+        }
+        .success-content {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .success-icon {
+            font-size: 1.2rem;
+        }
+        .success-text {
+            font-weight: 500;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Enhanced table styling for editable fields */
+        .grading-table td .editable-field {
+            border: 2px solid #e9ecef;
+            background: white;
+            transition: all 0.2s ease;
+        }
+        .grading-table td .editable-field:hover {
+            border-color: #1a73e8;
+            background: #f8f9ff;
+            transform: scale(1.02);
+        }
+        .grading-table td .editable-field:focus {
+            background: white;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
+            transform: scale(1.02);
+        }
+        
+        /* Make editable fields more prominent */
+        .editable-field {
+            border: 2px solid #e9ecef !important;
+            background: white !important;
+            font-weight: 500;
+        }
+        
+        .editable-field:hover {
+            border-color: #1a73e8 !important;
+            background: #f8f9ff !important;
+        }
+        
+        .editable-field:focus {
+            border-color: #1a73e8 !important;
+            background: white !important;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2) !important;
+        }
+        
+        /* Special styling for score inputs */
+        .score-input {
+            background: #e3f2fd !important;
+            border-color: #1976d2 !important;
+            font-weight: bold !important;
+            text-align: center;
+        }
+        
+        .max-score-input {
+            background: #f3e5f5 !important;
+            border-color: #7b1fa2 !important;
+            text-align: center;
+        }
+        
+        /* Textarea specific styling */
+        textarea.editable-field {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.5;
+            resize: vertical;
+        }
+        
+        /* Add visual indicator for editable fields */
+        .editable-field::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 8px;
+            height: 8px;
+            background: #1a73e8;
+            border-radius: 50%;
+            opacity: 0.3;
+        }
+        
+        .grading-table td {
+            position: relative;
+        }
+        
+        /* New field type styles */
+        .rationale-text {
+            background: #fff8e1 !important;
+        }
+        
+        .total-score-inputs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .total-score-inputs label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-weight: 600;
+        }
+        
+        .alignment-status {
+            margin-bottom: 1rem;
+        }
+        
+        .alignment-status label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-weight: 600;
+        }
+        
+        .alignment-status select {
+            padding: 0.5rem;
+            border: 2px solid #e9ecef;
+            border-radius: 4px;
+            background: white;
+            font-size: 1rem;
+        }
+        
+        .evidence-contents {
+            margin-bottom: 1rem;
+        }
+        
+        .evidence-contents label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .summary-card.total-score {
+            border-left-color: #28a745;
+        }
+        
+        .summary-card.evidence {
+            border-left-color: #17a2b8;
+        }
+        
+        .summary-card.recommendations {
+            border-left-color: #ffc107;
+        }
+        
+        /* AI Analysis Section */
+        .ai-analysis {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border: 2px solid #1976d2;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
+        }
+        
+        .ai-analysis h4 {
+            margin: 0 0 0.5rem 0;
+            color: #1976d2;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        /* Text field groups in table cells */
+        .text-field-group {
+            margin-bottom: 0.75rem;
+        }
+        
+        .text-field-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .text-field-label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+            font-size: 0.85rem;
+        }
+        
+        .text-field-group textarea {
+            min-height: 60px;
+        }
+        
+        /* Field groups in summary cards */
+        .field-group {
+            margin-bottom: 1rem;
+        }
+        
+        .field-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .field-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+        
+        .field-group input,
+        .field-group textarea {
+            width: 100%;
+        }
+        
+        /* Generic editor styling */
+        .generic-editor {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .generic-editor h4 {
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+        
+        .generic-editor p {
+            margin-bottom: 1rem;
+        }
+        
+        /* Additional sections styling */
+        .additional-sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .text-fields-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        /* Dynamic grading interface */
+        .dynamic-grading-interface {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .field-section {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .field-section-title {
+            margin: 0 0 1rem 0;
+            color: #495057;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+        }
+        
+        .field-section-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        
+        .field-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .field-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+        
+        .field-item input,
+        .field-item textarea {
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .field-item input:focus,
+        .field-item textarea:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+        
+        .field-item textarea {
+            min-height: 80px;
+            resize: vertical;
+            line-height: 1.4;
+        }
+        
+        .field-item input[type="number"] {
+            max-width: 120px;
+        }
+        
+        /* Grading cards container */
+        .grading-cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            padding: 1rem 0;
+        }
+        
+        .grading-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+        
+        .grading-card:hover {
+            border-color: #1a73e8;
+            box-shadow: 0 6px 12px rgba(26, 115, 232, 0.15);
+        }
+        
+        .card-title {
+            margin: 0 0 1rem 0;
+            color: #495057;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+        }
+        
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .card-content .editable-field {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .card-content .editable-field:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+        
+        .card-content textarea.editable-field {
+            min-height: 100px;
+            resize: vertical;
+            line-height: 1.4;
+        }
+        
+        @media (max-width: 768px) {
+            .grading-cards-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .grading-card {
+                padding: 1rem;
+            }
+        }
+        
+        /* AI Processing States */
+        .ai-processing {
+            text-align: center;
+            padding: 3rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e9ecef;
+            border-top: 4px solid #1a73e8;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .emergency-fallback {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+        
+        .emergency-fallback h4 {
+            color: #856404;
+            margin-top: 0;
+        }
+        
+        .raw-data-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .raw-field {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        
+        .raw-field h5 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+        }
+        
+        .sub-field {
+            margin-bottom: 0.75rem;
+        }
+        
+        .sub-field label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+        
+        .sub-field textarea,
+        .raw-field > textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 0.5rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+        
+        /* AI Generated Content Styles */
+        .grading-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            padding: 1rem 0;
+        }
+        
+        .grading-cards .grading-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .grading-cards .grading-card h4 {
+            margin: 0 0 1rem 0;
+            color: #495057;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+        }
+        
+        .grading-cards input,
+        .grading-cards textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .grading-cards input:focus,
+        .grading-cards textarea:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+        
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .grading-modal-content {
+                margin: 1rem;
+                max-width: calc(100vw - 2rem);
+            }
+            .grading-header {
+                padding: 1rem;
+            }
+            .grading-header h2 {
+                font-size: 1.2rem;
+            }
+            .student-info {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+            .grading-content {
+                padding: 1rem;
+            }
+            .grading-table th,
+            .grading-table td {
+                padding: 0.75rem;
+            }
+            .summary-section {
+                grid-template-columns: 1fr;
+            }
+            .grading-actions {
+                flex-direction: column;
+                padding: 1rem;
+            }
+            .submit-grades-btn,
+            .cancel-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            .success-message {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                right: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -78,6 +981,11 @@
         
         <div id="error" class="error"></div>
         <div id="success" class="success"></div>
+    </div>
+
+    <div id="dashboard" style="display: none; padding: 2rem; max-width: 1200px; margin: 0 auto;">
+        <h1>Google Classroom Dashboard</h1>
+        <div id="courses"></div>
     </div>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
