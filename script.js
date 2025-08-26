@@ -201,9 +201,7 @@ async function submitForGrading(courseId, assignmentId, userId, accessToken) {
                 studentSubmissions: [submission]
             };
             
-            // Stringify all objects to ensure proper serialization
-            const stringifiedPayload = JSON.stringify(payload, null, 2);
-            console.log('Sending payload:', stringifiedPayload);
+            console.log('Sending payload:', payload);
             
             // Send to n8n webhook
             const webhookResponse = await fetch(CONFIG.N8N_WEBHOOK_URL, {
@@ -211,7 +209,7 @@ async function submitForGrading(courseId, assignmentId, userId, accessToken) {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: stringifiedPayload
+                body: JSON.stringify(payload)
             });
             
             if (webhookResponse.ok) {
@@ -246,7 +244,7 @@ function displayGradingResults(gradingData, userId, courseId, assignmentId, acce
     
     // Store the data for editing
     window.currentGradingData = {
-        content: JSON.parse(JSON.stringify(content)), // Deep copy
+        content: structuredClone(content), // Deep copy
         userId,
         courseId,
         assignmentId,
@@ -309,82 +307,214 @@ function displayGradingResults(gradingData, userId, courseId, assignmentId, acce
     }, 10);
 }
 
-// Create the grading table based on the actual webhook response structure
-function createGradingTable(content) {
-    let tableHTML = `
-        <div class="grading-table-container">
-            <table class="grading-table">
-                <thead>
-                    <tr>
-                        <th>Criteria</th>
-                        <th>Score</th>
-                        <th>Evidence</th>
-                        <th>Areas for Improvement</th>
-                    </tr>
-                </thead>
-                <tbody>
+
+
+// Calculate total score from criteria
+function calculateTotalScore(content) {
+    if (content.total_score) return content.total_score;
+    if (content.criteria && Array.isArray(content.criteria)) {
+        return content.criteria.reduce((total, criterion) => total + (criterion.score || 0), 0);
+    }
+    return 0;
+}
+
+// Calculate maximum possible score
+function calculateMaxScore(content) {
+    if (content.max_score) return content.max_score;
+    if (content.criteria && Array.isArray(content.criteria)) {
+        return content.criteria.reduce((total, criterion) => total + (criterion.max_score || 0), 0);
+    }
+    return 100;
+}
+
+// Create editable grading interface using AI
+async function createEditableGradingTable(content) {
+    // Create a beautiful, editable interface based on the content structure
+    let html = `
+        <div class="grading-interface">
+            <div class="criteria-section">
+                <h3>📋 Grading Criteria</h3>
     `;
     
-    // Add criteria rows from the dynamic criteria array
     if (content.criteria && Array.isArray(content.criteria)) {
-        content.criteria.forEach(criterion => {
-            tableHTML += `
-                <tr>
-                    <td class="criteria-name">${criterion.title || 'N/A'}</td>
-                    <td class="score-cell">
-                        <div class="score-display">
-                            <span class="score">${criterion.score || 0}</span>
-                            <span class="max-score">/${criterion.max_score || 0}</span>
+        content.criteria.forEach((criterion, index) => {
+            html += `
+                <div class="criterion-card" data-index="${index}">
+                    <div class="criterion-header">
+                        <h4 contenteditable="true" data-field="title">${criterion.title || 'Untitled Criterion'}</h4>
+                        <div class="score-input">
+                            <input type="number" data-field="score" value="${criterion.score || 0}" min="0" max="${criterion.max_score || 10}">
+                            <span>/${criterion.max_score || 10}</span>
                         </div>
-                    </td>
-                    <td class="evidence-text">${criterion.evidence || 'No evidence provided'}</td>
-                    <td class="improvement-text">${criterion.areas_for_improvement || 'No improvements noted'}</td>
-                </tr>
+                    </div>
+                    <div class="criterion-content">
+                        <div class="field-group">
+                            <label>Evidence:</label>
+                            <textarea data-field="evidence" rows="3">${criterion.evidence || ''}</textarea>
+                        </div>
+                        <div class="field-group">
+                            <label>Areas for Improvement:</label>
+                            <textarea data-field="areas_for_improvement" rows="2">${criterion.areas_for_improvement || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
             `;
         });
     }
     
-    tableHTML += `
-                </tbody>
-            </table>
-        </div>
+    html += `
+            </div>
     `;
     
     // Add case study alignment section if it exists
     if (content.case_study_alignment_and_final_note) {
-        tableHTML += `
-            <div class="summary-section">
-                <div class="summary-card alignment">
-                    <h4>📋 Case Study Alignment</h4>
-                    <p>${content.case_study_alignment_and_final_note.alignment_summary || 'N/A'}</p>
+        html += `
+            <div class="alignment-section">
+                <h3>📊 Case Study Analysis</h3>
+                <div class="field-group">
+                    <label>Alignment Summary:</label>
+                    <textarea data-field="alignment_summary" rows="3">${content.case_study_alignment_and_final_note.alignment_summary || ''}</textarea>
                 </div>
-                
-                <div class="summary-card notes">
-                    <h4>📝 Rubric Notes</h4>
-                    <p>${content.case_study_alignment_and_final_note.notes_on_rubric || 'N/A'}</p>
+                <div class="field-group">
+                    <label>Rubric Notes:</label>
+                    <textarea data-field="notes_on_rubric" rows="3">${content.case_study_alignment_and_final_note.notes_on_rubric || ''}</textarea>
                 </div>
             </div>
         `;
     }
     
-    // Add any other dynamic fields that might exist in the content
-    const excludedFields = ['total_score', 'max_score', 'criteria', 'case_study_alignment_and_final_note'];
-    const otherFields = Object.keys(content).filter(key => !excludedFields.includes(key));
+    html += `
+        </div>
+    `;
     
-    if (otherFields.length > 0) {
-        tableHTML += `<div class="additional-fields">`;
-        otherFields.forEach(field => {
-            tableHTML += `
-                <div class="summary-card additional">
-                    <h4>📌 ${field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
-                    <p>${content[field]}</p>
-                </div>
-            `;
-        });
-        tableHTML += `</div>`;
+    return html;
+}
+
+// Initialize editable field handlers
+function initializeEditableFields() {
+    // Handle score inputs
+    document.querySelectorAll('input[data-field="score"]').forEach(input => {
+        input.addEventListener('change', updateTotalScore);
+    });
+    
+    // Handle all editable fields
+    document.querySelectorAll('[data-field]').forEach(element => {
+        element.addEventListener('input', saveFieldChange);
+    });
+}
+
+// Update total score when individual scores change
+function updateTotalScore() {
+    const scoreInputs = document.querySelectorAll('input[data-field="score"]');
+    let total = 0;
+    scoreInputs.forEach(input => {
+        total += parseInt(input.value) || 0;
+    });
+    
+    const totalScoreInput = document.getElementById('total-score');
+    if (totalScoreInput) {
+        totalScoreInput.value = total;
+    }
+}
+
+// Save field changes to the current grading data
+function saveFieldChange(event) {
+    const element = event.target;
+    const field = element.getAttribute('data-field');
+    const value = element.value || element.textContent;
+    
+    if (!window.currentGradingData) return;
+    
+    // Handle criterion fields
+    const criterionCard = element.closest('.criterion-card');
+    if (criterionCard) {
+        const index = parseInt(criterionCard.getAttribute('data-index'));
+        if (window.currentGradingData.content.criteria && window.currentGradingData.content.criteria[index]) {
+            window.currentGradingData.content.criteria[index][field] = value;
+        }
     }
     
-    return tableHTML;
+    // Handle alignment fields
+    if (field === 'alignment_summary' || field === 'notes_on_rubric') {
+        if (!window.currentGradingData.content.case_study_alignment_and_final_note) {
+            window.currentGradingData.content.case_study_alignment_and_final_note = {};
+        }
+        window.currentGradingData.content.case_study_alignment_and_final_note[field] = value;
+    }
+}
+
+// Preview edited data
+function previewEditedData() {
+    if (!window.currentGradingData) {
+        alert('No grading data available');
+        return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'preview-modal';
+    modal.innerHTML = `
+        <div class="preview-modal-content">
+            <div class="preview-header">
+                <h2>📋 Preview Changes</h2>
+                <span class="close-preview" onclick="this.closest('.preview-modal').remove()">&times;</span>
+            </div>
+            <pre class="preview-json">${JSON.stringify(window.currentGradingData.content, null, 2)}</pre>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    setTimeout(() => modal.classList.add('show'), 10);
+}
+
+// Submit grades to Google Classroom
+async function submitGradesToClassroom() {
+    if (!window.currentGradingData) {
+        alert('No grading data available');
+        return;
+    }
+    
+    const button = document.querySelector('.submit-grades-btn');
+    const originalText = button.textContent;
+    
+    try {
+        button.textContent = 'Submitting...';
+        button.disabled = true;
+        
+        const { userId, courseId, assignmentId, accessToken, content } = window.currentGradingData;
+        
+        // Calculate final score
+        const totalScore = calculateTotalScore(content);
+        const maxScore = calculateMaxScore(content);
+        
+        // Submit grade to Google Classroom
+        const gradePayload = {
+            assignedGrade: totalScore,
+            draftGrade: totalScore
+        };
+        
+        const response = await fetch(`https://classroom.googleapis.com/v1/courses/${courseId}/courseWork/${assignmentId}/studentSubmissions/${userId}:modifyAttachments`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(gradePayload)
+        });
+        
+        if (response.ok) {
+            alert(`Grade submitted successfully! Score: ${totalScore}/${maxScore}`);
+            closeGradingModal();
+        } else {
+            throw new Error(`Failed to submit grade: ${response.status}`);
+        }
+        
+    } catch (error) {
+        console.error('Error submitting grades:', error);
+        alert('Failed to submit grades: ' + error.message);
+    } finally {
+        button.textContent = originalText;
+        button.disabled = false;
+    }
 }
 
 // Close grading modal
