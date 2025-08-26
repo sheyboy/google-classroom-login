@@ -1147,7 +1147,7 @@ function previewEditedData() {
     setTimeout(() => modal.classList.add('show'), 10);
 }
 
-// Render JSON preview using Gemini AI
+// Render JSON preview using Gemini API
 async function renderJSONPreview() {
     const renderButton = document.querySelector('.render-json-btn');
     const renderedContent = document.getElementById('rendered-json-content');
@@ -1159,26 +1159,26 @@ async function renderJSONPreview() {
     
     // Show loading state
     const originalText = renderButton.innerHTML;
-    renderButton.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 0.5rem;"></div>Rendering...';
+    renderButton.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 0.5rem;"></div>Rendering with Gemini AI...';
     renderButton.disabled = true;
     
     try {
-        // Generate AI-rendered preview
-        const aiRenderedHTML = await generateAIJSONPreview(window.currentGradingData.content);
+        // Send raw JSON to Gemini API for rendering
+        const aiRenderedHTML = await callGeminiAPIForJSONRender(window.currentGradingData.content);
         
         // Show the rendered content
         renderedContent.innerHTML = aiRenderedHTML;
         renderedContent.style.display = 'block';
         
         // Update button to show success
-        renderButton.innerHTML = '✅ Rendered Successfully';
+        renderButton.innerHTML = '✅ Rendered by Gemini AI';
         renderButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
         
         // Scroll to rendered content
         renderedContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
         
     } catch (error) {
-        console.error('Error rendering JSON preview:', error);
+        console.error('Error rendering JSON with Gemini API:', error);
         
         // Fallback to manual rendering
         const fallbackHTML = generateFallbackJSONPreview(window.currentGradingData.content);
@@ -1197,70 +1197,109 @@ async function renderJSONPreview() {
     }
 }
 
-// Generate AI-rendered JSON preview using Gemini
-async function generateAIJSONPreview(jsonData) {
-    try {
-        // Check if Gemini AI is available
-        if (!window.ai || !window.ai.languageModel) {
-            throw new Error('Gemini AI not available');
-        }
-        
-        const session = await window.ai.languageModel.create({
-            systemPrompt: `You are an expert data visualization designer specializing in creating beautiful, readable presentations of JSON data.
+// Call Gemini API directly for JSON rendering
+async function callGeminiAPIForJSONRender(jsonData) {
+    const GEMINI_API_KEY = 'AIzaSyCSAquXebiwOSJWMsJ-z5ZTN4JPzAnTjXo';
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    
+    // Create the prompt for Gemini
+    const systemPrompt = `You are an expert data visualization designer specializing in creating beautiful, readable presentations of JSON data for educational grading systems.
 
-CONTEXT: You will receive JSON data from an educational grading system and must create a stunning, user-friendly HTML presentation that makes the data easy to understand and visually appealing.
+TASK: Transform the provided JSON data into a stunning, professional HTML presentation with inline CSS.
 
 DESIGN REQUIREMENTS:
-1. Create a clean, modern layout that presents JSON data in an organized, readable format
+1. Create a modern, clean layout that makes JSON data easy to understand
 2. Use cards, sections, and visual hierarchy to organize information
-3. Color-code different types of data (scores, text, arrays, objects)
+3. Color-code different data types (scores=blue, text=gray, arrays=green, objects=purple)
 4. Make it visually engaging with icons, gradients, and modern CSS
 5. Ensure excellent readability and professional appearance
 6. Handle nested objects and arrays gracefully
 7. Make it suitable for educational and professional contexts
 
-LAYOUT PRINCIPLES:
-- Use clear section headers for different data categories
-- Present scores and numbers prominently with visual indicators
-- Display arrays as organized lists or cards
-- Show nested objects in collapsible or well-organized sections
-- Use consistent spacing and typography
-- Include visual separators between sections
+LAYOUT STRUCTURE:
+- Header with title and summary
+- Organized sections for different data categories
+- Score displays with visual indicators (progress bars, badges)
+- Arrays displayed as organized cards or lists
+- Nested objects in collapsible or well-structured sections
+- Professional typography and consistent spacing
 
 STYLING GUIDELINES:
-- Modern CSS with clean, professional appearance
-- Consistent color scheme with good contrast
+- Use modern CSS with gradients, shadows, and rounded corners
+- Professional color palette: blues, greens, purples, grays
+- Consistent spacing (1rem, 1.5rem, 2rem)
 - Responsive design principles
-- Engaging visual elements like badges, progress indicators, and cards
-- Smooth transitions and subtle animations
+- Visual elements: badges, progress bars, cards, icons
+- Smooth transitions and hover effects
 
-OUTPUT: Return ONLY the HTML content (no <html>, <head>, or <body> tags). Include all CSS inline for immediate rendering.`
-        });
-        
-        const prompt = `Transform this JSON data into a beautiful, organized visual presentation:
+CRITICAL: Return ONLY HTML content with inline CSS (no <html>, <head>, or <body> tags). Make it immediately renderable.`;
+
+    const userPrompt = `Transform this JSON grading data into a beautiful visual presentation:
 
 ${JSON.stringify(jsonData, null, 2)}
 
 Create a stunning HTML layout that:
-1. Organizes the data into clear, logical sections
-2. Makes scores and important information prominent
-3. Uses modern design elements and visual hierarchy
-4. Presents arrays and nested objects in an easy-to-read format
-5. Includes appropriate icons and visual indicators
-6. Uses professional styling suitable for educational contexts
+1. Shows overall scores prominently with visual indicators
+2. Displays criteria/rubric items as organized cards
+3. Presents feedback and evidence clearly
+4. Uses modern design with appropriate colors and spacing
+5. Makes the data easy to read and understand
+6. Includes icons and visual elements for engagement
 
-Make it look like a professional data dashboard that transforms raw JSON into an engaging, readable format.`;
+Generate professional HTML with inline CSS suitable for educational contexts.`;
+
+    try {
+        const response = await fetch(GEMINI_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-goog-api-key': GEMINI_API_KEY
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: `${systemPrompt}\n\n${userPrompt}`
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 8192
+                }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
         
-        const result = await session.prompt(prompt);
-        
-        // Clean up the session
-        session.destroy();
-        
-        return result;
+        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+            let htmlContent = data.candidates[0].content.parts[0].text;
+            
+            // Clean up the response - remove any markdown code blocks
+            htmlContent = htmlContent.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+            
+            // Add a header indicating it was generated by Gemini
+            const geminiHeader = `
+                <div style="background: linear-gradient(135deg, #4285f4 0%, #34a853 50%, #fbbc05 75%, #ea4335 100%); color: white; padding: 1rem 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center; box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);">
+                    <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        🤖 Generated by Gemini AI
+                    </h2>
+                    <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1rem;">Beautiful visualization of your JSON data</p>
+                </div>
+            `;
+            
+            return geminiHeader + htmlContent;
+        } else {
+            throw new Error('Invalid response format from Gemini API');
+        }
         
     } catch (error) {
-        console.error('Gemini AI JSON rendering failed:', error);
-        throw error;
+        console.error('Gemini API call failed:', error);
+        throw new Error(`Failed to render with Gemini AI: ${error.message}`);
     }
 }
 
