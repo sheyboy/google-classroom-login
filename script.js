@@ -188,7 +188,7 @@ async function submitForGrading(courseId, assignmentId, userId, accessToken) {
         if (submissionData.studentSubmissions && submissionData.studentSubmissions.length > 0) {
             const submission = submissionData.studentSubmissions[0];
             
-            // Create the JSON payload matching your n8n workflow structure
+            // Create the JSON payload matching the EXACT n8n template structure
             const payload = {
                 google_access_token: accessToken,
                 body: {
@@ -199,20 +199,32 @@ async function submitForGrading(courseId, assignmentId, userId, accessToken) {
                         }]
                     }]
                 },
-                studentSubmissions: [submission]
+                studentSubmissions: [submission],
+                webhookUrl: CONFIG.N8N_WEBHOOK_URL,
+                executionMode: "production"
             };
             
-            // Ensure all objects and arrays are properly stringified
-            const stringifyDeep = (obj) => {
+            // Ensure all objects and arrays are properly stringified for n8n
+            const stringifyForN8N = (obj) => {
                 if (Array.isArray(obj)) {
-                    return obj.map(item => typeof item === 'object' ? JSON.stringify(item) : item);
+                    return obj.map(item => {
+                        if (typeof item === 'object' && item !== null) {
+                            return JSON.stringify(stringifyForN8N(item));
+                        }
+                        return item;
+                    });
                 } else if (typeof obj === 'object' && obj !== null) {
                     const result = {};
                     for (const [key, value] of Object.entries(obj)) {
                         if (Array.isArray(value)) {
-                            result[key] = value.map(item => typeof item === 'object' ? JSON.stringify(item) : item);
+                            result[key] = value.map(item => {
+                                if (typeof item === 'object' && item !== null) {
+                                    return JSON.stringify(stringifyForN8N(item));
+                                }
+                                return item;
+                            });
                         } else if (typeof value === 'object' && value !== null) {
-                            result[key] = JSON.stringify(value);
+                            result[key] = JSON.stringify(stringifyForN8N(value));
                         } else {
                             result[key] = value;
                         }
@@ -222,9 +234,9 @@ async function submitForGrading(courseId, assignmentId, userId, accessToken) {
                 return obj;
             };
             
-            const processedPayload = stringifyDeep(payload);
+            const processedPayload = stringifyForN8N(payload);
             const stringifiedPayload = JSON.stringify(processedPayload, null, 2);
-            console.log('Sending payload with stringified objects:', stringifiedPayload);
+            console.log('Sending n8n-compatible payload:', stringifiedPayload);
             
             // Send to n8n webhook
             const webhookResponse = await fetch(CONFIG.N8N_WEBHOOK_URL, {
@@ -523,19 +535,26 @@ async function submitGradesToClassroom() {
         const updatedData = collectEditedData();
         const { userId, courseId, assignmentId, accessToken } = window.currentGradingData;
         
-        // Calculate total score from individual criteria
+        // Calculate total score dynamically from the updated data structure
         let totalScore = 0;
-        if (updatedData.criteria && Array.isArray(updatedData.criteria)) {
-            totalScore = updatedData.criteria.reduce((sum, criterion) => {
-                return sum + (parseInt(criterion.score) || 0);
-            }, 0);
-        }
+        
+        // Try to find total score in the data structure
+        Object.keys(updatedData).forEach(key => {
+            const value = updatedData[key];
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                if (value.hasOwnProperty('score') && typeof value.score === 'number') {
+                    totalScore += value.score;
+                }
+            }
+        });
         
         // Override with manual total score if provided
         const manualTotalScore = document.getElementById('total-score').value;
         if (manualTotalScore) {
             totalScore = parseInt(manualTotalScore);
         }
+        
+        console.log('Calculated total score:', totalScore);
         
         // Prepare grade data for Google Classroom
         const gradeData = {
