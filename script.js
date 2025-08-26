@@ -1129,12 +1129,281 @@ function previewEditedData() {
                 <h2>📋 Preview Changes</h2>
                 <span class="close-preview" onclick="this.closest('.preview-modal').remove()">&times;</span>
             </div>
-            <pre class="preview-json">${JSON.stringify(window.currentGradingData.content, null, 2)}</pre>
+            <div class="preview-content-wrapper">
+                <pre class="preview-json">${JSON.stringify(window.currentGradingData.content, null, 2)}</pre>
+                <div class="preview-actions">
+                    <button class="render-json-btn" onclick="renderJSONPreview()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 1rem 2rem; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+                        🎨 Render JSON
+                    </button>
+                </div>
+                <div class="rendered-content" id="rendered-json-content" style="display: none; margin-top: 2rem; border-top: 2px solid #e9ecef; padding-top: 2rem;">
+                    <!-- AI-rendered content will appear here -->
+                </div>
+            </div>
         </div>
     `;
 
     document.body.appendChild(modal);
     setTimeout(() => modal.classList.add('show'), 10);
+}
+
+// Render JSON preview using Gemini AI
+async function renderJSONPreview() {
+    const renderButton = document.querySelector('.render-json-btn');
+    const renderedContent = document.getElementById('rendered-json-content');
+    
+    if (!window.currentGradingData || !renderButton || !renderedContent) {
+        alert('Unable to render JSON preview');
+        return;
+    }
+    
+    // Show loading state
+    const originalText = renderButton.innerHTML;
+    renderButton.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 0.5rem;"></div>Rendering...';
+    renderButton.disabled = true;
+    
+    try {
+        // Generate AI-rendered preview
+        const aiRenderedHTML = await generateAIJSONPreview(window.currentGradingData.content);
+        
+        // Show the rendered content
+        renderedContent.innerHTML = aiRenderedHTML;
+        renderedContent.style.display = 'block';
+        
+        // Update button to show success
+        renderButton.innerHTML = '✅ Rendered Successfully';
+        renderButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+        
+        // Scroll to rendered content
+        renderedContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+    } catch (error) {
+        console.error('Error rendering JSON preview:', error);
+        
+        // Fallback to manual rendering
+        const fallbackHTML = generateFallbackJSONPreview(window.currentGradingData.content);
+        renderedContent.innerHTML = fallbackHTML;
+        renderedContent.style.display = 'block';
+        
+        // Update button to show fallback
+        renderButton.innerHTML = '⚠️ Rendered (Fallback)';
+        renderButton.style.background = 'linear-gradient(135deg, #ffc107 0%, #fd7e14 100%)';
+        
+        // Scroll to rendered content
+        renderedContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+    } finally {
+        renderButton.disabled = false;
+    }
+}
+
+// Generate AI-rendered JSON preview using Gemini
+async function generateAIJSONPreview(jsonData) {
+    try {
+        // Check if Gemini AI is available
+        if (!window.ai || !window.ai.languageModel) {
+            throw new Error('Gemini AI not available');
+        }
+        
+        const session = await window.ai.languageModel.create({
+            systemPrompt: `You are an expert data visualization designer specializing in creating beautiful, readable presentations of JSON data.
+
+CONTEXT: You will receive JSON data from an educational grading system and must create a stunning, user-friendly HTML presentation that makes the data easy to understand and visually appealing.
+
+DESIGN REQUIREMENTS:
+1. Create a clean, modern layout that presents JSON data in an organized, readable format
+2. Use cards, sections, and visual hierarchy to organize information
+3. Color-code different types of data (scores, text, arrays, objects)
+4. Make it visually engaging with icons, gradients, and modern CSS
+5. Ensure excellent readability and professional appearance
+6. Handle nested objects and arrays gracefully
+7. Make it suitable for educational and professional contexts
+
+LAYOUT PRINCIPLES:
+- Use clear section headers for different data categories
+- Present scores and numbers prominently with visual indicators
+- Display arrays as organized lists or cards
+- Show nested objects in collapsible or well-organized sections
+- Use consistent spacing and typography
+- Include visual separators between sections
+
+STYLING GUIDELINES:
+- Modern CSS with clean, professional appearance
+- Consistent color scheme with good contrast
+- Responsive design principles
+- Engaging visual elements like badges, progress indicators, and cards
+- Smooth transitions and subtle animations
+
+OUTPUT: Return ONLY the HTML content (no <html>, <head>, or <body> tags). Include all CSS inline for immediate rendering.`
+        });
+        
+        const prompt = `Transform this JSON data into a beautiful, organized visual presentation:
+
+${JSON.stringify(jsonData, null, 2)}
+
+Create a stunning HTML layout that:
+1. Organizes the data into clear, logical sections
+2. Makes scores and important information prominent
+3. Uses modern design elements and visual hierarchy
+4. Presents arrays and nested objects in an easy-to-read format
+5. Includes appropriate icons and visual indicators
+6. Uses professional styling suitable for educational contexts
+
+Make it look like a professional data dashboard that transforms raw JSON into an engaging, readable format.`;
+        
+        const result = await session.prompt(prompt);
+        
+        // Clean up the session
+        session.destroy();
+        
+        return result;
+        
+    } catch (error) {
+        console.error('Gemini AI JSON rendering failed:', error);
+        throw error;
+    }
+}
+
+// Fallback JSON preview rendering if AI fails
+function generateFallbackJSONPreview(data) {
+    return `
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 16px; margin-bottom: 2rem; text-align: center;">
+            <h1 style="margin: 0; font-size: 2rem; font-weight: 700;">📊 Rendered JSON Preview</h1>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">Beautiful presentation of your grading data</p>
+        </div>
+        
+        <div style="display: grid; gap: 2rem;">
+            ${renderJSONSection('Overall Information', extractOverallInfo(data))}
+            ${data.criteria ? renderJSONSection('Criteria Details', data.criteria) : ''}
+            ${data.rubric ? renderJSONSection('Rubric Assessment', data.rubric) : ''}
+            ${data.evidence_feedback ? renderJSONSection('Evidence & Feedback', data.evidence_feedback) : ''}
+            ${data.case_study_alignment ? renderJSONSection('Case Study Alignment', data.case_study_alignment) : ''}
+            ${renderJSONSection('Additional Data', extractAdditionalData(data))}
+        </div>
+        
+        <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 2px solid #e9ecef;">
+            <button onclick="copyRenderedData()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; padding: 1rem 2rem; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-right: 1rem; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);">
+                📋 Copy Data
+            </button>
+            <button onclick="printRenderedData()" style="background: linear-gradient(135deg, #007bff 0%, #6610f2 100%); color: white; border: none; padding: 1rem 2rem; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);">
+                🖨️ Print
+            </button>
+        </div>
+    `;
+}
+
+// Helper function to render JSON sections
+function renderJSONSection(title, data) {
+    if (!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0)) {
+        return '';
+    }
+    
+    return `
+        <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 8px 24px rgba(0,0,0,0.1); border-left: 6px solid #667eea;">
+            <h2 style="margin: 0 0 1.5rem 0; color: #2c3e50; font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                📋 ${title}
+            </h2>
+            ${renderJSONContent(data)}
+        </div>
+    `;
+}
+
+// Helper function to render JSON content
+function renderJSONContent(data) {
+    if (Array.isArray(data)) {
+        return `
+            <div style="display: grid; gap: 1rem;">
+                ${data.map((item, index) => `
+                    <div style="background: #f8f9fa; border-radius: 12px; padding: 1.5rem; border-left: 4px solid #28a745;">
+                        <h4 style="margin: 0 0 1rem 0; color: #495057; font-size: 1.1rem; font-weight: 600;">Item ${index + 1}</h4>
+                        ${typeof item === 'object' ? renderObjectContent(item) : `<p style="margin: 0; color: #6c757d;">${item}</p>`}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else if (typeof data === 'object') {
+        return renderObjectContent(data);
+    } else {
+        return `<p style="margin: 0; color: #6c757d; font-size: 1.1rem;">${data}</p>`;
+    }
+}
+
+// Helper function to render object content
+function renderObjectContent(obj) {
+    return `
+        <div style="display: grid; gap: 1rem;">
+            ${Object.entries(obj).map(([key, value]) => `
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <strong style="color: #495057; font-size: 1rem; text-transform: capitalize;">${key.replace(/_/g, ' ')}:</strong>
+                    <div style="padding-left: 1rem; border-left: 3px solid #e9ecef;">
+                        ${typeof value === 'object' && value !== null ? 
+                            (Array.isArray(value) ? 
+                                `<ul style="margin: 0; padding-left: 1rem;">${value.map(item => `<li style="margin-bottom: 0.5rem; color: #6c757d;">${item}</li>`).join('')}</ul>` :
+                                renderObjectContent(value)
+                            ) :
+                            `<span style="color: #6c757d;">${value}</span>`
+                        }
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Helper functions to extract data sections
+function extractOverallInfo(data) {
+    const overall = {};
+    if (data.total_score !== undefined) overall.total_score = data.total_score;
+    if (data.max_total_score !== undefined) overall.max_total_score = data.max_total_score;
+    if (data.overall) overall.overall = data.overall;
+    return Object.keys(overall).length > 0 ? overall : null;
+}
+
+function extractAdditionalData(data) {
+    const excluded = ['criteria', 'rubric', 'evidence_feedback', 'case_study_alignment', 'total_score', 'max_total_score', 'overall'];
+    const additional = {};
+    Object.keys(data).forEach(key => {
+        if (!excluded.includes(key)) {
+            additional[key] = data[key];
+        }
+    });
+    return Object.keys(additional).length > 0 ? additional : null;
+}
+
+// Helper functions for rendered data actions
+function copyRenderedData() {
+    if (!window.currentGradingData) return;
+    
+    const jsonText = JSON.stringify(window.currentGradingData.content, null, 2);
+    navigator.clipboard.writeText(jsonText).then(() => {
+        alert('JSON data copied to clipboard! 📋');
+    }).catch(() => {
+        alert('Unable to copy to clipboard');
+    });
+}
+
+function printRenderedData() {
+    const renderedContent = document.getElementById('rendered-json-content');
+    if (!renderedContent) return;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Rendered JSON Preview</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; line-height: 1.6; }
+                @media print { button { display: none !important; } }
+            </style>
+        </head>
+        <body>
+            ${renderedContent.innerHTML.replace(/<button[^>]*>.*?<\/button>/g, '')}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
 }
 
 // Print AI-generated rubric

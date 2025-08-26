@@ -1133,6 +1133,11 @@
             opacity: 1;
         }
         
+        .preview-content-wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+        
         .preview-json {
             padding: 2rem;
             background: #f8f9fa;
@@ -1142,7 +1147,56 @@
             white-space: pre-wrap;
             word-wrap: break-word;
             margin: 0;
+            border-radius: 0;
+            max-height: 400px;
+            overflow-y: auto;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .preview-actions {
+            padding: 1.5rem 2rem;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .render-json-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .render-json-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+        }
+        
+        .render-json-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .rendered-content {
+            background: white;
             border-radius: 0 0 12px 12px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Enhanced loading spinner for render button */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
         /* Styled Feedback Modal */
