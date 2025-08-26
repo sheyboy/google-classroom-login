@@ -42,13 +42,13 @@ async function loadClassroomData(accessToken) {
         // Hide login form and show dashboard
         document.querySelector('.login-container').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
-        
+
         // Get courses
         const coursesResponse = await fetch('https://classroom.googleapis.com/v1/courses', {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const coursesData = await coursesResponse.json();
-        
+
         if (coursesData.courses) {
             displayCourses(coursesData.courses, accessToken);
         } else {
@@ -66,7 +66,7 @@ async function loadClassroomData(accessToken) {
 async function displayCourses(courses, accessToken) {
     const coursesContainer = document.getElementById('courses');
     coursesContainer.innerHTML = '';
-    
+
     for (const course of courses) {
         const courseDiv = document.createElement('div');
         courseDiv.className = 'course';
@@ -78,7 +78,7 @@ async function displayCourses(courses, accessToken) {
             </div>
         `;
         coursesContainer.appendChild(courseDiv);
-        
+
         // Load assignments for this course
         loadAssignments(course.id, accessToken);
     }
@@ -92,12 +92,12 @@ async function loadAssignments(courseId, accessToken) {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const assignmentsData = await assignmentsResponse.json();
-        
+
         const assignmentsContainer = document.getElementById(`assignments-${courseId}`);
-        
+
         if (assignmentsData.courseWork) {
             assignmentsContainer.innerHTML = '';
-            
+
             for (const assignment of assignmentsData.courseWork) {
                 const assignmentDiv = document.createElement('div');
                 assignmentDiv.className = 'assignment';
@@ -109,7 +109,7 @@ async function loadAssignments(courseId, accessToken) {
                     </div>
                 `;
                 assignmentsContainer.appendChild(assignmentDiv);
-                
+
                 // Load submissions for this assignment
                 loadSubmissions(courseId, assignment.id, accessToken);
             }
@@ -129,16 +129,16 @@ async function loadSubmissions(courseId, assignmentId, accessToken) {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const submissionsData = await submissionsResponse.json();
-        
+
         const submissionsContainer = document.getElementById(`submissions-${assignmentId}`);
-        
+
         if (submissionsData.studentSubmissions && submissionsData.studentSubmissions.length > 0) {
             submissionsContainer.innerHTML = '';
-            
+
             for (const submission of submissionsData.studentSubmissions) {
                 const submissionDiv = document.createElement('div');
                 submissionDiv.className = 'submission';
-                
+
                 let attachments = '';
                 if (submission.assignmentSubmission && submission.assignmentSubmission.attachments) {
                     attachments = submission.assignmentSubmission.attachments.map(att => {
@@ -148,7 +148,7 @@ async function loadSubmissions(courseId, assignmentId, accessToken) {
                         return 'Attachment';
                     }).join(', ');
                 }
-                
+
                 submissionDiv.innerHTML = `
                     <p><strong>Student ID:</strong> ${submission.userId}</p>
                     <p><strong>State:</strong> ${submission.state}</p>
@@ -172,21 +172,21 @@ async function loadSubmissions(courseId, assignmentId, accessToken) {
 async function submitForGrading(courseId, assignmentId, userId, accessToken) {
     const button = event.target;
     const originalText = button.textContent;
-    
+
     try {
         // Show loading state
         button.textContent = 'Grading...';
         button.disabled = true;
-        
+
         // Get the specific submission data
         const submissionResponse = await fetch(`https://classroom.googleapis.com/v1/courses/${courseId}/courseWork/${assignmentId}/studentSubmissions?userId=${userId}&states=TURNED_IN`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const submissionData = await submissionResponse.json();
-        
+
         if (submissionData.studentSubmissions && submissionData.studentSubmissions.length > 0) {
             const submission = submissionData.studentSubmissions[0];
-            
+
             // Create the JSON payload matching your n8n workflow structure
             const payload = {
                 google_access_token: accessToken,
@@ -200,9 +200,9 @@ async function submitForGrading(courseId, assignmentId, userId, accessToken) {
                 },
                 studentSubmissions: [submission]
             };
-            
+
             console.log('Sending payload:', payload);
-            
+
             // Send to n8n webhook
             const webhookResponse = await fetch(CONFIG.N8N_WEBHOOK_URL, {
                 method: 'POST',
@@ -211,7 +211,7 @@ async function submitForGrading(courseId, assignmentId, userId, accessToken) {
                 },
                 body: JSON.stringify(payload)
             });
-            
+
             if (webhookResponse.ok) {
                 const gradingResult = await webhookResponse.json();
                 displayGradingResults(gradingResult, userId, courseId, assignmentId, accessToken);
@@ -232,16 +232,30 @@ async function submitForGrading(courseId, assignmentId, userId, accessToken) {
 // Display grading results in a beautiful table
 function displayGradingResults(gradingData, userId, courseId, assignmentId, accessToken) {
     console.log('Raw grading data received from n8n:', gradingData);
-    
+
     // Handle the response from your n8n workflow
     // The Output Parser1 node returns the parsed JSON structure
     let content = gradingData;
-    
+
     // If it's wrapped in an array or has a specific structure, extract it
     if (Array.isArray(gradingData) && gradingData.length > 0) {
         content = gradingData[0];
     }
-    
+
+    // Handle nested structure: check if data is under message.content
+    if (content.message && content.message.content) {
+        console.log('Found nested structure under message.content');
+        content = content.message.content;
+    }
+
+    // Handle other possible nested structures
+    if (content.content && !content.criteria && !content.overall) {
+        console.log('Found nested structure under content');
+        content = content.content;
+    }
+
+    console.log('Final extracted content for grading:', content);
+
     // Store the data for editing
     window.currentGradingData = {
         content: structuredClone(content), // Deep copy
@@ -250,12 +264,12 @@ function displayGradingResults(gradingData, userId, courseId, assignmentId, acce
         assignmentId,
         accessToken
     };
-    
+
     if (!content) {
         alert('No grading data received from n8n workflow');
         return;
     }
-    
+
     // Create modal overlay with AI-generated interface
     const modal = document.createElement('div');
     modal.className = 'grading-modal';
@@ -292,13 +306,13 @@ function displayGradingResults(gradingData, userId, courseId, assignmentId, acce
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
-    
+
     // Show modal with animation and then load AI interface
     setTimeout(async () => {
         modal.classList.add('show');
-        
+
         // Generate the AI interface
         const aiInterface = await createEditableGradingTable(content);
         const contentContainer = document.getElementById('grading-content-container');
@@ -314,19 +328,33 @@ function displayGradingResults(gradingData, userId, courseId, assignmentId, acce
 
 // Calculate total score from criteria
 function calculateTotalScore(content) {
+    // Check for direct total_score
     if (content.total_score) return content.total_score;
+
+    // Check for overall.score structure
+    if (content.overall && content.overall.score) return content.overall.score;
+
+    // Calculate from criteria array
     if (content.criteria && Array.isArray(content.criteria)) {
         return content.criteria.reduce((total, criterion) => total + (criterion.score || 0), 0);
     }
+
     return 0;
 }
 
 // Calculate maximum possible score
 function calculateMaxScore(content) {
+    // Check for direct max_score
     if (content.max_score) return content.max_score;
+
+    // Check for overall.maxScore structure
+    if (content.overall && content.overall.maxScore) return content.overall.maxScore;
+
+    // Calculate from criteria array
     if (content.criteria && Array.isArray(content.criteria)) {
-        return content.criteria.reduce((total, criterion) => total + (criterion.max_score || 0), 0);
+        return content.criteria.reduce((total, criterion) => total + (criterion.maxScore || criterion.max_score || 0), 0);
     }
+
     return 100;
 }
 
@@ -338,37 +366,44 @@ async function createEditableGradingTable(content) {
             <div class="criteria-section">
                 <h3>📋 Grading Criteria</h3>
     `;
-    
+
     if (content.criteria && Array.isArray(content.criteria)) {
         content.criteria.forEach((criterion, index) => {
+            // Handle different field name variations
+            const title = criterion.title || criterion.name || `Criterion ${index + 1}`;
+            const score = criterion.score || 0;
+            const maxScore = criterion.maxScore || criterion.max_score || 10;
+            const evidence = criterion.evidence || '';
+            const notes = criterion.notes || criterion.areas_for_improvement || '';
+
             html += `
                 <div class="criterion-card" data-index="${index}">
                     <div class="criterion-header">
-                        <h4 contenteditable="true" data-field="title">${criterion.title || 'Untitled Criterion'}</h4>
+                        <h4 contenteditable="true" data-field="title">${title}</h4>
                         <div class="score-input">
-                            <input type="number" data-field="score" value="${criterion.score || 0}" min="0" max="${criterion.max_score || 10}">
-                            <span>/${criterion.max_score || 10}</span>
+                            <input type="number" data-field="score" value="${score}" min="0" max="${maxScore}">
+                            <span>/${maxScore}</span>
                         </div>
                     </div>
                     <div class="criterion-content">
                         <div class="field-group">
                             <label>Evidence:</label>
-                            <textarea data-field="evidence" rows="3">${criterion.evidence || ''}</textarea>
+                            <textarea data-field="evidence" rows="3">${evidence}</textarea>
                         </div>
                         <div class="field-group">
-                            <label>Areas for Improvement:</label>
-                            <textarea data-field="areas_for_improvement" rows="2">${criterion.areas_for_improvement || ''}</textarea>
+                            <label>Notes/Areas for Improvement:</label>
+                            <textarea data-field="notes" rows="2">${notes}</textarea>
                         </div>
                     </div>
                 </div>
             `;
         });
     }
-    
+
     html += `
             </div>
     `;
-    
+
     // Add case study alignment section if it exists
     if (content.case_study_alignment_and_final_note) {
         html += `
@@ -385,11 +420,11 @@ async function createEditableGradingTable(content) {
             </div>
         `;
     }
-    
+
     html += `
         </div>
     `;
-    
+
     return html;
 }
 
@@ -399,7 +434,7 @@ function initializeEditableFields() {
     document.querySelectorAll('input[data-field="score"]').forEach(input => {
         input.addEventListener('change', updateTotalScore);
     });
-    
+
     // Handle all editable fields
     document.querySelectorAll('[data-field]').forEach(element => {
         element.addEventListener('input', saveFieldChange);
@@ -413,7 +448,7 @@ function updateTotalScore() {
     scoreInputs.forEach(input => {
         total += parseInt(input.value) || 0;
     });
-    
+
     const totalScoreInput = document.getElementById('total-score');
     if (totalScoreInput) {
         totalScoreInput.value = total;
@@ -425,18 +460,27 @@ function saveFieldChange(event) {
     const element = event.target;
     const field = element.getAttribute('data-field');
     const value = element.value || element.textContent;
-    
+
     if (!window.currentGradingData) return;
-    
+
     // Handle criterion fields
     const criterionCard = element.closest('.criterion-card');
     if (criterionCard) {
         const index = parseInt(criterionCard.getAttribute('data-index'));
         if (window.currentGradingData.content.criteria && window.currentGradingData.content.criteria[index]) {
-            window.currentGradingData.content.criteria[index][field] = value;
+            // Map field names to the correct property names
+            let targetField = field;
+            if (field === 'title' && !window.currentGradingData.content.criteria[index].title) {
+                targetField = 'name'; // Use 'name' if 'title' doesn't exist
+            }
+            if (field === 'notes' && !window.currentGradingData.content.criteria[index].notes) {
+                targetField = 'areas_for_improvement'; // Fallback to areas_for_improvement
+            }
+            
+            window.currentGradingData.content.criteria[index][targetField] = value;
         }
     }
-    
+
     // Handle alignment fields
     if (field === 'alignment_summary' || field === 'notes_on_rubric') {
         if (!window.currentGradingData.content.case_study_alignment_and_final_note) {
@@ -452,7 +496,7 @@ async function showStyledFeedback() {
         alert('No grading data available');
         return;
     }
-    
+
     // Create loading modal first
     const modal = document.createElement('div');
     modal.className = 'styled-feedback-modal';
@@ -471,21 +515,21 @@ async function showStyledFeedback() {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
     setTimeout(() => modal.classList.add('show'), 10);
-    
+
     try {
         // Generate AI feedback using Gemini
         const aiGeneratedHTML = await generateAIFeedback(window.currentGradingData.content);
-        
+
         // Update modal with AI-generated content
         const feedbackBody = modal.querySelector('.feedback-body');
         feedbackBody.innerHTML = aiGeneratedHTML;
-        
+
     } catch (error) {
         console.error('Error generating AI feedback:', error);
-        
+
         // Fallback to manual generation if AI fails
         const feedbackBody = modal.querySelector('.feedback-body');
         feedbackBody.innerHTML = generateFallbackFeedback(window.currentGradingData.content);
@@ -499,11 +543,19 @@ async function generateAIFeedback(gradingData) {
         if (!window.ai || !window.ai.languageModel) {
             throw new Error('Gemini AI not available');
         }
-        
+
         const session = await window.ai.languageModel.create({
             systemPrompt: `You are an expert educational feedback designer. Your task is to create beautiful, professional HTML for student feedback reports.
 
 CONTEXT: You will receive JSON grading data and must create a stunning, card-based HTML interface that presents this information in an engaging, educational way.
+
+DATA STRUCTURE NOTES:
+- Scores may be in "overall.score" and "overall.maxScore" OR direct "total_score" and "max_score"
+- Criteria may have "name" OR "title" for the criterion name
+- Criteria may have "maxScore" OR "max_score" for maximum points
+- Evidence may be in "evidence" field
+- Notes/improvements may be in "notes" OR "areas_for_improvement"
+- Handle missing or null fields gracefully
 
 REQUIREMENTS:
 1. Create a visually appealing, modern design using HTML and inline CSS
@@ -513,11 +565,12 @@ REQUIREMENTS:
 5. Use emojis and visual indicators for better engagement
 6. Color-code performance levels (green=excellent, yellow=good, orange=needs work, red=poor)
 7. Make it print-friendly and shareable
+8. Handle flexible data structures - adapt to whatever fields are available
 
 STRUCTURE TO FOLLOW:
 - Overall score summary with circular progress indicator
 - Individual criteria cards with scores and feedback
-- Strengths and improvement areas clearly highlighted
+- Evidence and notes sections clearly highlighted
 - Professional typography and spacing
 - Action buttons for print/share functionality
 
@@ -530,7 +583,7 @@ STYLING GUIDELINES:
 
 OUTPUT: Return ONLY the HTML content for the feedback body (no <html>, <head>, or <body> tags). Include all CSS inline for immediate rendering.`
         });
-        
+
         const prompt = `Create a beautiful, professional student feedback report from this grading data:
 
 ${JSON.stringify(gradingData, null, 2)}
@@ -544,14 +597,14 @@ Generate stunning HTML with inline CSS that presents this information in an enga
 6. Responsive design elements
 
 Make it visually appealing and suitable for educational settings.`;
-        
+
         const result = await session.prompt(prompt);
-        
+
         // Clean up the session
         session.destroy();
-        
+
         return result;
-        
+
     } catch (error) {
         console.error('Gemini AI generation failed:', error);
         throw error;
@@ -563,13 +616,13 @@ function generateFallbackFeedback(content) {
     const totalScore = calculateTotalScore(content);
     const maxScore = calculateMaxScore(content);
     const percentage = Math.round((totalScore / maxScore) * 100);
-    
+
     // Determine grade color based on percentage
     let gradeColor = '#dc3545';
     if (percentage >= 80) gradeColor = '#28a745';
     else if (percentage >= 70) gradeColor = '#ffc107';
     else if (percentage >= 60) gradeColor = '#fd7e14';
-    
+
     return `
         <div style="padding: 2rem; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 16px; margin-bottom: 2rem;">
             <div style="text-align: center; margin-bottom: 2rem;">
@@ -585,38 +638,43 @@ function generateFallbackFeedback(content) {
         
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
             ${(content.criteria || []).map((criterion, index) => {
-                const score = criterion.score || 0;
-                const maxScore = criterion.max_score || 10;
-                const percentage = Math.round((score / maxScore) * 100);
-                
-                let scoreColor = '#dc3545';
-                if (percentage >= 80) scoreColor = '#28a745';
-                else if (percentage >= 70) scoreColor = '#ffc107';
-                else if (percentage >= 60) scoreColor = '#fd7e14';
-                
-                return `
+        const score = criterion.score || 0;
+        const maxScore = criterion.maxScore || criterion.max_score || 10;
+        const percentage = Math.round((score / maxScore) * 100);
+        
+        // Handle different field name variations
+        const title = criterion.title || criterion.name || `Criterion ${index + 1}`;
+        const evidence = criterion.evidence || '';
+        const notes = criterion.notes || criterion.areas_for_improvement || '';
+
+        let scoreColor = '#dc3545';
+        if (percentage >= 80) scoreColor = '#28a745';
+        else if (percentage >= 70) scoreColor = '#ffc107';
+        else if (percentage >= 60) scoreColor = '#fd7e14';
+
+        return `
                     <div style="background: white; border: 2px solid #e9ecef; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: all 0.3s ease;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid #f8f9fa;">
-                            <h4 style="margin: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">${criterion.title || `Criterion ${index + 1}`}</h4>
+                            <h4 style="margin: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">${title}</h4>
                             <div style="padding: 0.5rem 1rem; border-radius: 20px; color: white; font-weight: 700; font-size: 0.9rem; background-color: ${scoreColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                                 ${score}/${maxScore}
                             </div>
                         </div>
-                        ${criterion.evidence ? `
+                        ${evidence ? `
                             <div style="padding: 1rem; border-radius: 8px; background: #d4edda; border-left: 4px solid #28a745; margin-bottom: 1rem;">
                                 <h5 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 600; color: #495057;">✅ Evidence of Achievement</h5>
-                                <p style="margin: 0; line-height: 1.5; color: #495057;">${criterion.evidence}</p>
+                                <p style="margin: 0; line-height: 1.5; color: #495057;">${evidence}</p>
                             </div>
                         ` : ''}
-                        ${criterion.areas_for_improvement ? `
+                        ${notes ? `
                             <div style="padding: 1rem; border-radius: 8px; background: #fff3cd; border-left: 4px solid #ffc107;">
-                                <h5 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 600; color: #495057;">🎯 Areas for Improvement</h5>
-                                <p style="margin: 0; line-height: 1.5; color: #495057;">${criterion.areas_for_improvement}</p>
+                                <h5 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 600; color: #495057;">🎯 Notes & Areas for Improvement</h5>
+                                <p style="margin: 0; line-height: 1.5; color: #495057;">${notes}</p>
                             </div>
                         ` : ''}
                     </div>
                 `;
-            }).join('')}
+    }).join('')}
         </div>
         
         ${content.case_study_alignment_and_final_note ? `
@@ -651,17 +709,17 @@ function generateCriteriaCards(criteria) {
     if (!criteria || criteria.length === 0) {
         return '<p class="no-criteria">No detailed criteria available.</p>';
     }
-    
+
     return criteria.map((criterion, index) => {
         const score = criterion.score || 0;
         const maxScore = criterion.max_score || 10;
         const percentage = Math.round((score / maxScore) * 100);
-        
+
         let scoreColor = '#dc3545';
         if (percentage >= 80) scoreColor = '#28a745';
         else if (percentage >= 70) scoreColor = '#ffc107';
         else if (percentage >= 60) scoreColor = '#fd7e14';
-        
+
         return `
             <div class="criterion-feedback-card">
                 <div class="criterion-header">
@@ -702,7 +760,7 @@ function getGradeLabel(percentage) {
 function printAIFeedback() {
     const feedbackContent = document.querySelector('.styled-feedback-content');
     if (!feedbackContent) return;
-    
+
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
         <!DOCTYPE html>
@@ -731,23 +789,23 @@ function printAIFeedback() {
 // Share AI-generated feedback function
 function shareAIFeedback() {
     if (!window.currentGradingData) return;
-    
+
     const content = window.currentGradingData.content;
     const totalScore = calculateTotalScore(content);
     const maxScore = calculateMaxScore(content);
     const percentage = Math.round((totalScore / maxScore) * 100);
-    
+
     const shareText = `🎓 AI-Generated Student Feedback Report
 
 📊 Overall Performance: ${totalScore}/${maxScore} (${percentage}%)
 🏆 Grade: ${getGradeLabel(percentage)}
 
 📋 Detailed Assessment:
-${content.criteria ? content.criteria.map((criterion, index) => 
-    `${criterion.title || `Criterion ${index + 1}`}: ${criterion.score || 0}/${criterion.max_score || 10}
+${content.criteria ? content.criteria.map((criterion, index) =>
+        `${criterion.title || `Criterion ${index + 1}`}: ${criterion.score || 0}/${criterion.max_score || 10}
     ✅ Evidence: ${criterion.evidence || 'N/A'}
     🎯 Areas for Improvement: ${criterion.areas_for_improvement || 'N/A'}`
-).join('\n\n') : ''}
+    ).join('\n\n') : ''}
 
 ${content.case_study_alignment_and_final_note ? `
 📋 Case Study Analysis:
@@ -780,22 +838,22 @@ function printFeedback() {
 // Share feedback function
 function shareFeedback() {
     if (!window.currentGradingData) return;
-    
+
     const content = window.currentGradingData.content;
     const totalScore = calculateTotalScore(content);
     const maxScore = calculateMaxScore(content);
     const percentage = Math.round((totalScore / maxScore) * 100);
-    
+
     const shareText = `Student Feedback Report
     
 Overall Score: ${totalScore}/${maxScore} (${percentage}%)
 Grade: ${getGradeLabel(percentage)}
 
-${content.criteria ? content.criteria.map((criterion, index) => 
-    `${criterion.title || `Criterion ${index + 1}`}: ${criterion.score || 0}/${criterion.max_score || 10}
+${content.criteria ? content.criteria.map((criterion, index) =>
+        `${criterion.title || `Criterion ${index + 1}`}: ${criterion.score || 0}/${criterion.max_score || 10}
     Evidence: ${criterion.evidence || 'N/A'}
     Areas for Improvement: ${criterion.areas_for_improvement || 'N/A'}`
-).join('\n\n') : ''}
+    ).join('\n\n') : ''}
 
 ${content.case_study_alignment_and_final_note ? `
 Case Study Analysis:
@@ -826,7 +884,7 @@ function previewEditedData() {
         alert('No grading data available');
         return;
     }
-    
+
     const modal = document.createElement('div');
     modal.className = 'preview-modal';
     modal.innerHTML = `
@@ -838,7 +896,7 @@ function previewEditedData() {
             <pre class="preview-json">${JSON.stringify(window.currentGradingData.content, null, 2)}</pre>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
     setTimeout(() => modal.classList.add('show'), 10);
 }
@@ -849,26 +907,26 @@ async function submitGradesToClassroom() {
         alert('No grading data available');
         return;
     }
-    
+
     const button = document.querySelector('.submit-grades-btn');
     const originalText = button.textContent;
-    
+
     try {
         button.textContent = 'Submitting...';
         button.disabled = true;
-        
+
         const { userId, courseId, assignmentId, accessToken, content } = window.currentGradingData;
-        
+
         // Calculate final score
         const totalScore = calculateTotalScore(content);
         const maxScore = calculateMaxScore(content);
-        
+
         // Submit grade to Google Classroom
         const gradePayload = {
             assignedGrade: totalScore,
             draftGrade: totalScore
         };
-        
+
         const response = await fetch(`https://classroom.googleapis.com/v1/courses/${courseId}/courseWork/${assignmentId}/studentSubmissions/${userId}:modifyAttachments`, {
             method: 'POST',
             headers: {
@@ -877,14 +935,14 @@ async function submitGradesToClassroom() {
             },
             body: JSON.stringify(gradePayload)
         });
-        
+
         if (response.ok) {
             alert(`Grade submitted successfully! Score: ${totalScore}/${maxScore}`);
             closeGradingModal();
         } else {
             throw new Error(`Failed to submit grade: ${response.status}`);
         }
-        
+
     } catch (error) {
         console.error('Error submitting grades:', error);
         alert('Failed to submit grades: ' + error.message);
@@ -911,14 +969,14 @@ async function downloadFile(fileId, accessToken) {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         const fileData = await fileResponse.json();
-        
+
         if (fileData.exportLinks && fileData.exportLinks['text/html']) {
             // Download as HTML
             const contentResponse = await fetch(fileData.exportLinks['text/html'], {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             });
             const content = await contentResponse.text();
-            
+
             // Display content in a new window or modal
             const newWindow = window.open('', '_blank');
             newWindow.document.write(content);
@@ -953,7 +1011,7 @@ function showSuccess(message) {
 }
 
 // Event listeners
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Initialize Google Auth when the page loads
     if (typeof google !== 'undefined') {
         initializeGoogleAuth();
@@ -963,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Login button click handler
-    document.getElementById('loginBtn').addEventListener('click', function() {
+    document.getElementById('loginBtn').addEventListener('click', function () {
         if (!CONFIG.CLIENT_ID.includes('YOUR_')) {
             tokenClient.requestAccessToken();
         } else {
@@ -973,7 +1031,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Handle Google API load
-window.onload = function() {
+window.onload = function () {
     if (typeof google !== 'undefined') {
         initializeGoogleAuth();
     }
