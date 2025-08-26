@@ -280,6 +280,9 @@ function displayGradingResults(gradingData, userId, courseId, assignmentId, acce
                 <button class="submit-grades-btn" onclick="submitGradesToClassroom()">
                     📤 Submit Grades to Google Classroom
                 </button>
+                <button class="styled-feedback-btn" onclick="showStyledFeedback()" style="background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-right: 1rem; font-weight: 600;">
+                    🎨 View Styled Feedback
+                </button>
                 <button class="preview-btn" onclick="previewEditedData()" style="background: #17a2b8; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-right: 1rem;">
                     👁️ Preview Changes
                 </button>
@@ -440,6 +443,225 @@ function saveFieldChange(event) {
             window.currentGradingData.content.case_study_alignment_and_final_note = {};
         }
         window.currentGradingData.content.case_study_alignment_and_final_note[field] = value;
+    }
+}
+
+// Show styled feedback in a beautiful, presentable format
+function showStyledFeedback() {
+    if (!window.currentGradingData) {
+        alert('No grading data available');
+        return;
+    }
+    
+    const content = window.currentGradingData.content;
+    const totalScore = calculateTotalScore(content);
+    const maxScore = calculateMaxScore(content);
+    const percentage = Math.round((totalScore / maxScore) * 100);
+    
+    // Determine grade color based on percentage
+    let gradeColor = '#dc3545'; // Red for low scores
+    if (percentage >= 80) gradeColor = '#28a745'; // Green for high scores
+    else if (percentage >= 70) gradeColor = '#ffc107'; // Yellow for medium scores
+    else if (percentage >= 60) gradeColor = '#fd7e14'; // Orange for below average
+    
+    const modal = document.createElement('div');
+    modal.className = 'styled-feedback-modal';
+    modal.innerHTML = `
+        <div class="styled-feedback-content">
+            <div class="feedback-header">
+                <h2>🎓 Student Feedback Report</h2>
+                <span class="close-feedback" onclick="this.closest('.styled-feedback-modal').remove()">&times;</span>
+            </div>
+            
+            <div class="feedback-body">
+                <!-- Score Summary Card -->
+                <div class="score-summary-card">
+                    <div class="score-circle" style="border-color: ${gradeColor};">
+                        <div class="score-number" style="color: ${gradeColor};">${totalScore}</div>
+                        <div class="score-total">/ ${maxScore}</div>
+                    </div>
+                    <div class="score-details">
+                        <h3>Overall Performance</h3>
+                        <div class="percentage" style="color: ${gradeColor};">${percentage}%</div>
+                        <div class="grade-label">${getGradeLabel(percentage)}</div>
+                    </div>
+                </div>
+                
+                <!-- Criteria Breakdown -->
+                <div class="criteria-breakdown">
+                    <h3>📊 Detailed Assessment</h3>
+                    <div class="criteria-grid">
+                        ${generateCriteriaCards(content.criteria || [])}
+                    </div>
+                </div>
+                
+                <!-- Case Study Analysis (if available) -->
+                ${content.case_study_alignment_and_final_note ? `
+                    <div class="analysis-section">
+                        <h3>📋 Case Study Analysis</h3>
+                        <div class="analysis-cards">
+                            <div class="analysis-card alignment-card">
+                                <h4>🎯 Alignment Summary</h4>
+                                <p>${content.case_study_alignment_and_final_note.alignment_summary || 'No alignment summary provided.'}</p>
+                            </div>
+                            <div class="analysis-card notes-card">
+                                <h4>📝 Rubric Notes</h4>
+                                <p>${content.case_study_alignment_and_final_note.notes_on_rubric || 'No rubric notes provided.'}</p>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- Action Buttons -->
+                <div class="feedback-actions">
+                    <button class="print-btn" onclick="printFeedback()">
+                        🖨️ Print Feedback
+                    </button>
+                    <button class="share-btn" onclick="shareFeedback()">
+                        📤 Share Feedback
+                    </button>
+                    <button class="close-btn" onclick="this.closest('.styled-feedback-modal').remove()">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    setTimeout(() => modal.classList.add('show'), 10);
+}
+
+// Generate criteria cards for the styled feedback
+function generateCriteriaCards(criteria) {
+    if (!criteria || criteria.length === 0) {
+        return '<p class="no-criteria">No detailed criteria available.</p>';
+    }
+    
+    return criteria.map((criterion, index) => {
+        const score = criterion.score || 0;
+        const maxScore = criterion.max_score || 10;
+        const percentage = Math.round((score / maxScore) * 100);
+        
+        let scoreColor = '#dc3545';
+        if (percentage >= 80) scoreColor = '#28a745';
+        else if (percentage >= 70) scoreColor = '#ffc107';
+        else if (percentage >= 60) scoreColor = '#fd7e14';
+        
+        return `
+            <div class="criterion-feedback-card">
+                <div class="criterion-header">
+                    <h4>${criterion.title || `Criterion ${index + 1}`}</h4>
+                    <div class="criterion-score" style="background-color: ${scoreColor};">
+                        ${score}/${maxScore}
+                    </div>
+                </div>
+                <div class="criterion-body">
+                    ${criterion.evidence ? `
+                        <div class="evidence-section">
+                            <h5>✅ Evidence of Achievement</h5>
+                            <p>${criterion.evidence}</p>
+                        </div>
+                    ` : ''}
+                    ${criterion.areas_for_improvement ? `
+                        <div class="improvement-section">
+                            <h5>🎯 Areas for Improvement</h5>
+                            <p>${criterion.areas_for_improvement}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Get grade label based on percentage
+function getGradeLabel(percentage) {
+    if (percentage >= 90) return 'Excellent';
+    if (percentage >= 80) return 'Good';
+    if (percentage >= 70) return 'Satisfactory';
+    if (percentage >= 60) return 'Needs Improvement';
+    return 'Unsatisfactory';
+}
+
+// Print feedback function
+function printFeedback() {
+    const feedbackContent = document.querySelector('.styled-feedback-content');
+    if (!feedbackContent) return;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Student Feedback Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .feedback-header { text-align: center; margin-bottom: 30px; }
+                .score-summary-card { display: flex; align-items: center; gap: 20px; margin-bottom: 30px; padding: 20px; border: 2px solid #ddd; border-radius: 10px; }
+                .score-circle { width: 100px; height: 100px; border: 4px solid; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+                .score-number { font-size: 24px; font-weight: bold; }
+                .score-total { font-size: 14px; color: #666; }
+                .criteria-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+                .criterion-feedback-card { border: 1px solid #ddd; border-radius: 8px; padding: 15px; }
+                .criterion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+                .criterion-score { padding: 5px 10px; border-radius: 15px; color: white; font-weight: bold; }
+                .evidence-section, .improvement-section { margin: 10px 0; }
+                .evidence-section h5, .improvement-section h5 { margin: 0 0 5px 0; color: #333; }
+                .analysis-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+                .analysis-card { padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+                @media print { .feedback-actions { display: none; } }
+            </style>
+        </head>
+        <body>
+            ${feedbackContent.innerHTML.replace(/<button[^>]*>.*?<\/button>/g, '')}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Share feedback function
+function shareFeedback() {
+    if (!window.currentGradingData) return;
+    
+    const content = window.currentGradingData.content;
+    const totalScore = calculateTotalScore(content);
+    const maxScore = calculateMaxScore(content);
+    const percentage = Math.round((totalScore / maxScore) * 100);
+    
+    const shareText = `Student Feedback Report
+    
+Overall Score: ${totalScore}/${maxScore} (${percentage}%)
+Grade: ${getGradeLabel(percentage)}
+
+${content.criteria ? content.criteria.map((criterion, index) => 
+    `${criterion.title || `Criterion ${index + 1}`}: ${criterion.score || 0}/${criterion.max_score || 10}
+    Evidence: ${criterion.evidence || 'N/A'}
+    Areas for Improvement: ${criterion.areas_for_improvement || 'N/A'}`
+).join('\n\n') : ''}
+
+${content.case_study_alignment_and_final_note ? `
+Case Study Analysis:
+${content.case_study_alignment_and_final_note.alignment_summary || ''}
+
+Rubric Notes:
+${content.case_study_alignment_and_final_note.notes_on_rubric || ''}` : ''}`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: 'Student Feedback Report',
+            text: shareText
+        });
+    } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(shareText).then(() => {
+            alert('Feedback copied to clipboard!');
+        }).catch(() => {
+            // Final fallback: show in alert
+            alert('Share Text:\n\n' + shareText);
+        });
     }
 }
 
