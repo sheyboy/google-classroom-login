@@ -446,83 +446,27 @@ function saveFieldChange(event) {
     }
 }
 
-// Show styled feedback in a beautiful, presentable format
-function showStyledFeedback() {
+// Show styled feedback using Gemini AI to generate beautiful interface
+async function showStyledFeedback() {
     if (!window.currentGradingData) {
         alert('No grading data available');
         return;
     }
     
-    const content = window.currentGradingData.content;
-    const totalScore = calculateTotalScore(content);
-    const maxScore = calculateMaxScore(content);
-    const percentage = Math.round((totalScore / maxScore) * 100);
-    
-    // Determine grade color based on percentage
-    let gradeColor = '#dc3545'; // Red for low scores
-    if (percentage >= 80) gradeColor = '#28a745'; // Green for high scores
-    else if (percentage >= 70) gradeColor = '#ffc107'; // Yellow for medium scores
-    else if (percentage >= 60) gradeColor = '#fd7e14'; // Orange for below average
-    
+    // Create loading modal first
     const modal = document.createElement('div');
     modal.className = 'styled-feedback-modal';
     modal.innerHTML = `
         <div class="styled-feedback-content">
             <div class="feedback-header">
-                <h2>🎓 Student Feedback Report</h2>
+                <h2>🎨 AI-Generated Feedback Report</h2>
                 <span class="close-feedback" onclick="this.closest('.styled-feedback-modal').remove()">&times;</span>
             </div>
-            
             <div class="feedback-body">
-                <!-- Score Summary Card -->
-                <div class="score-summary-card">
-                    <div class="score-circle" style="border-color: ${gradeColor};">
-                        <div class="score-number" style="color: ${gradeColor};">${totalScore}</div>
-                        <div class="score-total">/ ${maxScore}</div>
-                    </div>
-                    <div class="score-details">
-                        <h3>Overall Performance</h3>
-                        <div class="percentage" style="color: ${gradeColor};">${percentage}%</div>
-                        <div class="grade-label">${getGradeLabel(percentage)}</div>
-                    </div>
-                </div>
-                
-                <!-- Criteria Breakdown -->
-                <div class="criteria-breakdown">
-                    <h3>📊 Detailed Assessment</h3>
-                    <div class="criteria-grid">
-                        ${generateCriteriaCards(content.criteria || [])}
-                    </div>
-                </div>
-                
-                <!-- Case Study Analysis (if available) -->
-                ${content.case_study_alignment_and_final_note ? `
-                    <div class="analysis-section">
-                        <h3>📋 Case Study Analysis</h3>
-                        <div class="analysis-cards">
-                            <div class="analysis-card alignment-card">
-                                <h4>🎯 Alignment Summary</h4>
-                                <p>${content.case_study_alignment_and_final_note.alignment_summary || 'No alignment summary provided.'}</p>
-                            </div>
-                            <div class="analysis-card notes-card">
-                                <h4>📝 Rubric Notes</h4>
-                                <p>${content.case_study_alignment_and_final_note.notes_on_rubric || 'No rubric notes provided.'}</p>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
-                
-                <!-- Action Buttons -->
-                <div class="feedback-actions">
-                    <button class="print-btn" onclick="printFeedback()">
-                        🖨️ Print Feedback
-                    </button>
-                    <button class="share-btn" onclick="shareFeedback()">
-                        📤 Share Feedback
-                    </button>
-                    <button class="close-btn" onclick="this.closest('.styled-feedback-modal').remove()">
-                        Close
-                    </button>
+                <div class="ai-generating">
+                    <div class="loading-spinner"></div>
+                    <h3>🤖 Gemini AI is creating your beautiful feedback report...</h3>
+                    <p>Analyzing grading data and generating a stunning presentation...</p>
                 </div>
             </div>
         </div>
@@ -530,6 +474,176 @@ function showStyledFeedback() {
     
     document.body.appendChild(modal);
     setTimeout(() => modal.classList.add('show'), 10);
+    
+    try {
+        // Generate AI feedback using Gemini
+        const aiGeneratedHTML = await generateAIFeedback(window.currentGradingData.content);
+        
+        // Update modal with AI-generated content
+        const feedbackBody = modal.querySelector('.feedback-body');
+        feedbackBody.innerHTML = aiGeneratedHTML;
+        
+    } catch (error) {
+        console.error('Error generating AI feedback:', error);
+        
+        // Fallback to manual generation if AI fails
+        const feedbackBody = modal.querySelector('.feedback-body');
+        feedbackBody.innerHTML = generateFallbackFeedback(window.currentGradingData.content);
+    }
+}
+
+// Generate AI feedback using Gemini
+async function generateAIFeedback(gradingData) {
+    try {
+        // Check if Gemini AI is available
+        if (!window.ai || !window.ai.languageModel) {
+            throw new Error('Gemini AI not available');
+        }
+        
+        const session = await window.ai.languageModel.create({
+            systemPrompt: `You are an expert educational feedback designer. Your task is to create beautiful, professional HTML for student feedback reports.
+
+CONTEXT: You will receive JSON grading data and must create a stunning, card-based HTML interface that presents this information in an engaging, educational way.
+
+REQUIREMENTS:
+1. Create a visually appealing, modern design using HTML and inline CSS
+2. Use cards, gradients, icons, and professional styling
+3. Make it suitable for students, teachers, and parents
+4. Include interactive elements where appropriate
+5. Use emojis and visual indicators for better engagement
+6. Color-code performance levels (green=excellent, yellow=good, orange=needs work, red=poor)
+7. Make it print-friendly and shareable
+
+STRUCTURE TO FOLLOW:
+- Overall score summary with circular progress indicator
+- Individual criteria cards with scores and feedback
+- Strengths and improvement areas clearly highlighted
+- Professional typography and spacing
+- Action buttons for print/share functionality
+
+STYLING GUIDELINES:
+- Use modern CSS with gradients, shadows, and rounded corners
+- Responsive design that works on all devices
+- Professional color scheme with good contrast
+- Clear hierarchy with proper headings and sections
+- Engaging visual elements like progress bars or score circles
+
+OUTPUT: Return ONLY the HTML content for the feedback body (no <html>, <head>, or <body> tags). Include all CSS inline for immediate rendering.`
+        });
+        
+        const prompt = `Create a beautiful, professional student feedback report from this grading data:
+
+${JSON.stringify(gradingData, null, 2)}
+
+Generate stunning HTML with inline CSS that presents this information in an engaging, educational format. Include:
+1. A prominent overall score display
+2. Individual criterion cards with visual score indicators
+3. Evidence and improvement sections clearly highlighted
+4. Professional styling with colors, gradients, and modern design
+5. Action buttons for print and share functionality
+6. Responsive design elements
+
+Make it visually appealing and suitable for educational settings.`;
+        
+        const result = await session.prompt(prompt);
+        
+        // Clean up the session
+        session.destroy();
+        
+        return result;
+        
+    } catch (error) {
+        console.error('Gemini AI generation failed:', error);
+        throw error;
+    }
+}
+
+// Fallback feedback generation if AI fails
+function generateFallbackFeedback(content) {
+    const totalScore = calculateTotalScore(content);
+    const maxScore = calculateMaxScore(content);
+    const percentage = Math.round((totalScore / maxScore) * 100);
+    
+    // Determine grade color based on percentage
+    let gradeColor = '#dc3545';
+    if (percentage >= 80) gradeColor = '#28a745';
+    else if (percentage >= 70) gradeColor = '#ffc107';
+    else if (percentage >= 60) gradeColor = '#fd7e14';
+    
+    return `
+        <div style="padding: 2rem; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 16px; margin-bottom: 2rem;">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <div style="display: inline-block; width: 120px; height: 120px; border: 6px solid ${gradeColor}; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; box-shadow: 0 8px 16px rgba(0,0,0,0.1); margin-bottom: 1rem;">
+                    <div style="font-size: 2.5rem; font-weight: 900; color: ${gradeColor}; line-height: 1;">${totalScore}</div>
+                    <div style="font-size: 1rem; color: #6c757d; font-weight: 600;">/ ${maxScore}</div>
+                </div>
+                <h2 style="margin: 0; color: #495057; font-size: 1.8rem;">Overall Performance</h2>
+                <div style="font-size: 2rem; font-weight: 900; color: ${gradeColor}; margin: 0.5rem 0;">${percentage}%</div>
+                <div style="font-size: 1.2rem; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 1px;">${getGradeLabel(percentage)}</div>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+            ${(content.criteria || []).map((criterion, index) => {
+                const score = criterion.score || 0;
+                const maxScore = criterion.max_score || 10;
+                const percentage = Math.round((score / maxScore) * 100);
+                
+                let scoreColor = '#dc3545';
+                if (percentage >= 80) scoreColor = '#28a745';
+                else if (percentage >= 70) scoreColor = '#ffc107';
+                else if (percentage >= 60) scoreColor = '#fd7e14';
+                
+                return `
+                    <div style="background: white; border: 2px solid #e9ecef; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: all 0.3s ease;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid #f8f9fa;">
+                            <h4 style="margin: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">${criterion.title || `Criterion ${index + 1}`}</h4>
+                            <div style="padding: 0.5rem 1rem; border-radius: 20px; color: white; font-weight: 700; font-size: 0.9rem; background-color: ${scoreColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                ${score}/${maxScore}
+                            </div>
+                        </div>
+                        ${criterion.evidence ? `
+                            <div style="padding: 1rem; border-radius: 8px; background: #d4edda; border-left: 4px solid #28a745; margin-bottom: 1rem;">
+                                <h5 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 600; color: #495057;">✅ Evidence of Achievement</h5>
+                                <p style="margin: 0; line-height: 1.5; color: #495057;">${criterion.evidence}</p>
+                            </div>
+                        ` : ''}
+                        ${criterion.areas_for_improvement ? `
+                            <div style="padding: 1rem; border-radius: 8px; background: #fff3cd; border-left: 4px solid #ffc107;">
+                                <h5 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 600; color: #495057;">🎯 Areas for Improvement</h5>
+                                <p style="margin: 0; line-height: 1.5; color: #495057;">${criterion.areas_for_improvement}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+        
+        ${content.case_study_alignment_and_final_note ? `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div style="background: white; border: 2px solid #e9ecef; border-left: 6px solid #17a2b8; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 1rem 0; color: #495057; font-size: 1.1rem; font-weight: 600;">🎯 Case Study Alignment</h4>
+                    <p style="margin: 0; line-height: 1.6; color: #6c757d;">${content.case_study_alignment_and_final_note.alignment_summary || 'No alignment summary provided.'}</p>
+                </div>
+                <div style="background: white; border: 2px solid #e9ecef; border-left: 6px solid #fd7e14; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 1rem 0; color: #495057; font-size: 1.1rem; font-weight: 600;">📝 Rubric Notes</h4>
+                    <p style="margin: 0; line-height: 1.6; color: #6c757d;">${content.case_study_alignment_and_final_note.notes_on_rubric || 'No rubric notes provided.'}</p>
+                </div>
+            </div>
+        ` : ''}
+        
+        <div style="display: flex; gap: 1rem; justify-content: center; padding-top: 2rem; border-top: 2px solid #f8f9fa;">
+            <button onclick="printAIFeedback()" style="padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
+                🖨️ Print Feedback
+            </button>
+            <button onclick="shareAIFeedback()" style="padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; background: linear-gradient(135deg, #007bff 0%, #6610f2 100%); color: white; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
+                📤 Share Feedback
+            </button>
+            <button onclick="this.closest('.styled-feedback-modal').remove()" style="padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; background: #6c757d; color: white; transition: all 0.2s ease;">
+                Close
+            </button>
+        </div>
+    `;
 }
 
 // Generate criteria cards for the styled feedback
@@ -584,8 +698,8 @@ function getGradeLabel(percentage) {
     return 'Unsatisfactory';
 }
 
-// Print feedback function
-function printFeedback() {
+// Print AI-generated feedback function
+function printAIFeedback() {
     const feedbackContent = document.querySelector('.styled-feedback-content');
     if (!feedbackContent) return;
     
@@ -594,23 +708,15 @@ function printFeedback() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Student Feedback Report</title>
+            <title>AI-Generated Student Feedback Report</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                .feedback-header { text-align: center; margin-bottom: 30px; }
-                .score-summary-card { display: flex; align-items: center; gap: 20px; margin-bottom: 30px; padding: 20px; border: 2px solid #ddd; border-radius: 10px; }
-                .score-circle { width: 100px; height: 100px; border: 4px solid; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-                .score-number { font-size: 24px; font-weight: bold; }
-                .score-total { font-size: 14px; color: #666; }
-                .criteria-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-                .criterion-feedback-card { border: 1px solid #ddd; border-radius: 8px; padding: 15px; }
-                .criterion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-                .criterion-score { padding: 5px 10px; border-radius: 15px; color: white; font-weight: bold; }
-                .evidence-section, .improvement-section { margin: 10px 0; }
-                .evidence-section h5, .improvement-section h5 { margin: 0 0 5px 0; color: #333; }
-                .analysis-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
-                .analysis-card { padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-                @media print { .feedback-actions { display: none; } }
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; line-height: 1.6; }
+                .feedback-header { text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%); color: white; border-radius: 12px; }
+                .feedback-header h2 { margin: 0; font-size: 1.8rem; }
+                @media print { 
+                    .feedback-actions, button { display: none !important; }
+                    .feedback-header { background: #6f42c1 !important; -webkit-print-color-adjust: exact; }
+                }
             </style>
         </head>
         <body>
@@ -620,6 +726,55 @@ function printFeedback() {
     `);
     printWindow.document.close();
     printWindow.print();
+}
+
+// Share AI-generated feedback function
+function shareAIFeedback() {
+    if (!window.currentGradingData) return;
+    
+    const content = window.currentGradingData.content;
+    const totalScore = calculateTotalScore(content);
+    const maxScore = calculateMaxScore(content);
+    const percentage = Math.round((totalScore / maxScore) * 100);
+    
+    const shareText = `🎓 AI-Generated Student Feedback Report
+
+📊 Overall Performance: ${totalScore}/${maxScore} (${percentage}%)
+🏆 Grade: ${getGradeLabel(percentage)}
+
+📋 Detailed Assessment:
+${content.criteria ? content.criteria.map((criterion, index) => 
+    `${criterion.title || `Criterion ${index + 1}`}: ${criterion.score || 0}/${criterion.max_score || 10}
+    ✅ Evidence: ${criterion.evidence || 'N/A'}
+    🎯 Areas for Improvement: ${criterion.areas_for_improvement || 'N/A'}`
+).join('\n\n') : ''}
+
+${content.case_study_alignment_and_final_note ? `
+📋 Case Study Analysis:
+🎯 Alignment: ${content.case_study_alignment_and_final_note.alignment_summary || 'N/A'}
+📝 Notes: ${content.case_study_alignment_and_final_note.notes_on_rubric || 'N/A'}` : ''}
+
+Generated by AI-Powered Grading System 🤖`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: 'AI-Generated Student Feedback Report',
+            text: shareText
+        });
+    } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(shareText).then(() => {
+            alert('AI-generated feedback copied to clipboard! 📋✨');
+        }).catch(() => {
+            // Final fallback: show in alert
+            alert('Share Text:\n\n' + shareText);
+        });
+    }
+}
+
+// Print feedback function (legacy)
+function printFeedback() {
+    printAIFeedback();
 }
 
 // Share feedback function

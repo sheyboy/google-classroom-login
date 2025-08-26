@@ -1481,6 +1481,84 @@
             background: #5a6268;
         }
         
+        /* AI Generation Loading Styles */
+        .ai-generating {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border-radius: 16px;
+            border: 2px dashed #6f42c1;
+        }
+        
+        .ai-generating h3 {
+            margin: 1.5rem 0 1rem 0;
+            color: #6f42c1;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .ai-generating p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #e9ecef;
+            border-top: 6px solid #6f42c1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* AI-Generated Content Styles */
+        .ai-feedback-container {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Enhanced button hover effects for AI feedback */
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        }
+        
+        /* Gemini AI branding */
+        .ai-powered-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 50%, #fbbc05 75%, #ea4335 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+        
+        .ai-powered-badge::before {
+            content: "🤖";
+            font-size: 1.2rem;
+        }
+        
         /* Responsive improvements */
         @media (max-width: 768px) {
             .grading-modal-content {
@@ -1618,6 +1696,30 @@
     </div>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Initialize Gemini AI if available -->
+    <script>
+        // Check for Gemini AI availability and initialize
+        async function initializeGeminiAI() {
+            try {
+                if ('ai' in window && 'languageModel' in window.ai) {
+                    console.log('✅ Gemini AI is available for enhanced feedback generation');
+                    
+                    // Test if we can create a session
+                    const capabilities = await window.ai.languageModel.capabilities();
+                    console.log('Gemini AI capabilities:', capabilities);
+                } else {
+                    console.log('ℹ️ Gemini AI not available - using fallback feedback generation');
+                }
+            } catch (error) {
+                console.log('ℹ️ Gemini AI initialization failed - using fallback:', error.message);
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializeGeminiAI);
+    </script>
+    
     <script src="script.js"></script>
 </body>
 </html>
