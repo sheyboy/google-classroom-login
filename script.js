@@ -297,8 +297,11 @@ function displayGradingResults(gradingData, userId, courseId, assignmentId, acce
                 <button class="styled-feedback-btn" onclick="showStyledFeedback()" style="background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-right: 1rem; font-weight: 600;">
                     🎨 View Styled Feedback
                 </button>
+                <button class="ai-preview-btn" onclick="showAIPreview()" style="background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-right: 1rem; font-weight: 600;">
+                    🤖 AI Preview Layout
+                </button>
                 <button class="preview-btn" onclick="previewEditedData()" style="background: #17a2b8; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-right: 1rem;">
-                    👁️ Preview Changes
+                    👁️ Preview JSON
                 </button>
                 <button class="cancel-btn" onclick="closeGradingModal()">
                     Cancel
@@ -878,7 +881,240 @@ ${content.case_study_alignment_and_final_note.notes_on_rubric || ''}` : ''}`;
     }
 }
 
-// Preview edited data
+// Show AI-generated preview layout using Gemini
+async function showAIPreview() {
+    if (!window.currentGradingData) {
+        alert('No grading data available');
+        return;
+    }
+    
+    // Create loading modal first
+    const modal = document.createElement('div');
+    modal.className = 'ai-preview-modal';
+    modal.innerHTML = `
+        <div class="ai-preview-content">
+            <div class="ai-preview-header">
+                <h2>🤖 AI-Generated Rubric Layout</h2>
+                <span class="close-ai-preview" onclick="this.closest('.ai-preview-modal').remove()">&times;</span>
+            </div>
+            <div class="ai-preview-body">
+                <div class="ai-generating-preview">
+                    <div class="loading-spinner"></div>
+                    <h3>🎨 Gemini AI is creating your beautiful rubric layout...</h3>
+                    <p>Analyzing rubric data and generating a stunning visual presentation...</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    setTimeout(() => modal.classList.add('show'), 10);
+    
+    try {
+        // Generate AI layout using Gemini
+        const aiGeneratedHTML = await generateAIRubricLayout(window.currentGradingData.content);
+        
+        // Update modal with AI-generated content
+        const previewBody = modal.querySelector('.ai-preview-body');
+        previewBody.innerHTML = aiGeneratedHTML;
+        
+    } catch (error) {
+        console.error('Error generating AI rubric layout:', error);
+        
+        // Fallback to manual generation if AI fails
+        const previewBody = modal.querySelector('.ai-preview-body');
+        previewBody.innerHTML = generateFallbackRubricLayout(window.currentGradingData.content);
+    }
+}
+
+// Generate AI rubric layout using Gemini
+async function generateAIRubricLayout(rubricData) {
+    try {
+        // Check if Gemini AI is available
+        if (!window.ai || !window.ai.languageModel) {
+            throw new Error('Gemini AI not available');
+        }
+        
+        const session = await window.ai.languageModel.create({
+            systemPrompt: `You are an expert educational assessment designer specializing in creating beautiful, professional rubric presentations.
+
+CONTEXT: You will receive JSON rubric data and must create a stunning, visually appealing HTML layout that presents grading information in a clear, professional manner suitable for educators, students, and administrators.
+
+DATA STRUCTURE EXPECTATIONS:
+- "rubric" array with criterion objects containing: criterion, score, max_score, rationale
+- "total_score" and "max_total_score" for overall performance
+- "evidence_feedback" array with improvement suggestions
+- "case_study_alignment" object with summary information
+- "notes" field with additional information
+
+DESIGN REQUIREMENTS:
+1. Create a modern, professional dashboard-style layout
+2. Use cards, progress bars, and visual score indicators
+3. Color-code performance levels (green=excellent, yellow=good, orange=needs improvement, red=poor)
+4. Make it visually engaging with icons, gradients, and modern CSS
+5. Ensure excellent readability and professional appearance
+6. Include interactive elements and hover effects
+7. Make it suitable for presentations and reports
+
+LAYOUT STRUCTURE:
+- Header with overall score summary and performance indicator
+- Individual criterion cards with scores, progress bars, and detailed rationale
+- Evidence feedback section with actionable recommendations
+- Case study alignment summary
+- Professional footer with notes and additional information
+
+STYLING GUIDELINES:
+- Use modern CSS with flexbox/grid layouts
+- Professional color palette with good contrast
+- Consistent spacing and typography
+- Responsive design principles
+- Engaging visual elements like progress circles, badges, and cards
+- Smooth transitions and hover effects
+
+OUTPUT: Return ONLY the HTML content (no <html>, <head>, or <body> tags). Include all CSS inline for immediate rendering.`
+        });
+        
+        const prompt = `Create a stunning, professional rubric presentation layout from this data:
+
+${JSON.stringify(rubricData, null, 2)}
+
+Generate beautiful HTML with inline CSS that presents this rubric information in a visually appealing, dashboard-style format. Include:
+
+1. A prominent overall score display with visual indicators
+2. Individual criterion cards with progress bars and detailed rationale
+3. Evidence feedback section with clear recommendations
+4. Case study alignment information
+5. Professional styling with modern design elements
+6. Color-coded performance indicators
+7. Interactive hover effects and smooth animations
+
+Make it look like a professional educational assessment dashboard that would impress educators and administrators.`;
+        
+        const result = await session.prompt(prompt);
+        
+        // Clean up the session
+        session.destroy();
+        
+        return result;
+        
+    } catch (error) {
+        console.error('Gemini AI rubric generation failed:', error);
+        throw error;
+    }
+}
+
+// Fallback rubric layout generation if AI fails
+function generateFallbackRubricLayout(data) {
+    const totalScore = data.total_score || 0;
+    const maxTotalScore = data.max_total_score || 100;
+    const percentage = Math.round((totalScore / maxTotalScore) * 100);
+    
+    // Determine overall grade color
+    let gradeColor = '#dc3545';
+    if (percentage >= 80) gradeColor = '#28a745';
+    else if (percentage >= 70) gradeColor = '#ffc107';
+    else if (percentage >= 60) gradeColor = '#fd7e14';
+    
+    return `
+        <div style="padding: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 16px; margin-bottom: 2rem; text-align: center;">
+            <h1 style="margin: 0 0 1rem 0; font-size: 2.5rem; font-weight: 900;">📊 Rubric Assessment</h1>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin-top: 2rem;">
+                <div style="width: 150px; height: 150px; border: 8px solid white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.1);">
+                    <div style="font-size: 3rem; font-weight: 900;">${totalScore}</div>
+                    <div style="font-size: 1.2rem; opacity: 0.9;">/ ${maxTotalScore}</div>
+                </div>
+                <div style="text-align: left;">
+                    <h2 style="margin: 0; font-size: 2rem;">Overall Performance</h2>
+                    <div style="font-size: 3rem; font-weight: 900; margin: 0.5rem 0;">${percentage}%</div>
+                    <div style="font-size: 1.3rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 2px;">${getGradeLabel(percentage)}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+            ${(data.rubric || []).map((criterion, index) => {
+                const score = criterion.score || 0;
+                const maxScore = criterion.max_score || 5;
+                const percentage = Math.round((score / maxScore) * 100);
+                
+                let scoreColor = '#dc3545';
+                if (percentage >= 80) scoreColor = '#28a745';
+                else if (percentage >= 70) scoreColor = '#ffc107';
+                else if (percentage >= 60) scoreColor = '#fd7e14';
+                
+                return `
+                    <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 8px 24px rgba(0,0,0,0.1); border-left: 6px solid ${scoreColor}; transition: all 0.3s ease;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h3 style="margin: 0; color: #2c3e50; font-size: 1.3rem; font-weight: 700;">${criterion.criterion}</h3>
+                            <div style="background: ${scoreColor}; color: white; padding: 0.75rem 1.5rem; border-radius: 25px; font-weight: 900; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                                ${score}/${maxScore}
+                            </div>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; border-radius: 12px; height: 12px; margin-bottom: 1.5rem; overflow: hidden;">
+                            <div style="background: ${scoreColor}; height: 100%; width: ${percentage}%; border-radius: 12px; transition: width 0.8s ease;"></div>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; border-radius: 12px; padding: 1.5rem; border-left: 4px solid ${scoreColor};">
+                            <h4 style="margin: 0 0 1rem 0; color: #495057; font-size: 1rem; font-weight: 600;">📝 Detailed Rationale</h4>
+                            <p style="margin: 0; line-height: 1.6; color: #6c757d; font-size: 0.95rem;">${criterion.rationale || 'No rationale provided.'}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+        
+        ${data.evidence_feedback && data.evidence_feedback.length > 0 ? `
+            <div style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); border-radius: 16px; padding: 2rem; margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 1.5rem 0; color: #8b4513; font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                    💡 Evidence & Improvement Recommendations
+                </h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                    ${data.evidence_feedback.map((feedback, index) => `
+                        <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 4px solid #ff6b6b;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                                <span style="background: #ff6b6b; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">${index + 1}</span>
+                                <h4 style="margin: 0; color: #2c3e50; font-size: 1.1rem; font-weight: 600;">Recommendation</h4>
+                            </div>
+                            <p style="margin: 0; line-height: 1.6; color: #495057;">${feedback}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : ''}
+        
+        ${data.case_study_alignment ? `
+            <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); border-radius: 16px; padding: 2rem; margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 1.5rem 0; color: #2c3e50; font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                    🎯 Case Study Alignment
+                </h2>
+                <div style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <p style="margin: 0; line-height: 1.8; color: #495057; font-size: 1.1rem;">${data.case_study_alignment.summary || 'No alignment summary provided.'}</p>
+                </div>
+            </div>
+        ` : ''}
+        
+        ${data.notes ? `
+            <div style="background: #f8f9fa; border-radius: 16px; padding: 2rem; border: 2px dashed #dee2e6;">
+                <h3 style="margin: 0 0 1rem 0; color: #6c757d; font-size: 1.3rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                    📌 Additional Notes
+                </h3>
+                <p style="margin: 0; line-height: 1.6; color: #6c757d; font-style: italic;">${data.notes}</p>
+            </div>
+        ` : ''}
+        
+        <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 2px solid #e9ecef;">
+            <button onclick="printAIRubric()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 1rem 2rem; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-right: 1rem; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+                🖨️ Print Rubric
+            </button>
+            <button onclick="shareAIRubric()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; padding: 1rem 2rem; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);">
+                📤 Share Rubric
+            </button>
+        </div>
+    `;
+}
+
+// Preview edited data (JSON format)
 function previewEditedData() {
     if (!window.currentGradingData) {
         alert('No grading data available');
@@ -899,6 +1135,83 @@ function previewEditedData() {
 
     document.body.appendChild(modal);
     setTimeout(() => modal.classList.add('show'), 10);
+}
+
+// Print AI-generated rubric
+function printAIRubric() {
+    const rubricContent = document.querySelector('.ai-preview-content');
+    if (!rubricContent) return;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>AI-Generated Rubric Assessment</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; line-height: 1.6; }
+                .ai-preview-header { text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%); color: white; border-radius: 12px; }
+                .ai-preview-header h2 { margin: 0; font-size: 2rem; }
+                @media print { 
+                    button { display: none !important; }
+                    .ai-preview-header { background: #ff6b6b !important; -webkit-print-color-adjust: exact; }
+                }
+            </style>
+        </head>
+        <body>
+            ${rubricContent.innerHTML.replace(/<button[^>]*>.*?<\/button>/g, '')}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Share AI-generated rubric
+function shareAIRubric() {
+    if (!window.currentGradingData) return;
+    
+    const data = window.currentGradingData.content;
+    const totalScore = data.total_score || 0;
+    const maxTotalScore = data.max_total_score || 100;
+    const percentage = Math.round((totalScore / maxTotalScore) * 100);
+    
+    const shareText = `🤖 AI-Generated Rubric Assessment
+
+📊 Overall Performance: ${totalScore}/${maxTotalScore} (${percentage}%)
+🏆 Grade: ${getGradeLabel(percentage)}
+
+📋 Detailed Rubric Breakdown:
+${data.rubric ? data.rubric.map((criterion, index) => 
+    `${index + 1}. ${criterion.criterion}: ${criterion.score}/${criterion.max_score}
+    📝 Rationale: ${criterion.rationale || 'N/A'}`
+).join('\n\n') : ''}
+
+${data.evidence_feedback && data.evidence_feedback.length > 0 ? `
+💡 Key Recommendations:
+${data.evidence_feedback.map((feedback, index) => `${index + 1}. ${feedback}`).join('\n')}` : ''}
+
+${data.case_study_alignment ? `
+🎯 Case Study Alignment: ${data.case_study_alignment.summary}` : ''}
+
+${data.notes ? `📌 Notes: ${data.notes}` : ''}
+
+Generated by AI-Powered Assessment System 🤖✨`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: 'AI-Generated Rubric Assessment',
+            text: shareText
+        });
+    } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(shareText).then(() => {
+            alert('AI-generated rubric copied to clipboard! 📋🤖');
+        }).catch(() => {
+            // Final fallback: show in alert
+            alert('Share Text:\n\n' + shareText);
+        });
+    }
 }
 
 // Submit grades to Google Classroom
